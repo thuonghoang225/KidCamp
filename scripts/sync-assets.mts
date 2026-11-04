@@ -25,6 +25,11 @@ function clockSvg(hour: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#2b8fe0" stroke-width="10"/>${ticks}<line x1="100" y1="100" x2="${hx}" y2="${hy}" stroke="#1f2a24" stroke-width="10" stroke-linecap="round"/><line x1="100" y1="100" x2="100" y2="34" stroke="#f06a3a" stroke-width="6" stroke-linecap="round"/><circle cx="100" cy="100" r="8" fill="#1f2a24"/></svg>`;
 }
 
+/** Thẻ giá tiền (Unit 18): "50.000đ". */
+function priceSvg(k: number): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect x="8" y="40" width="184" height="120" rx="20" fill="#eefaf2" stroke="#2f9e5b" stroke-width="8"/><circle cx="36" cy="100" r="12" fill="#2f9e5b"/><circle cx="164" cy="100" r="12" fill="#2f9e5b"/><text x="100" y="116" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="46" font-weight="800" text-anchor="middle" fill="#1f2a24">${k}.000đ</text></svg>`;
+}
+
 /** Thẻ số to, rõ (dùng cho How many…?). */
 function numberSvg(n: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect x="8" y="8" width="184" height="184" rx="36" fill="#fff4cc" stroke="#f5b301" stroke-width="10"/><text x="100" y="134" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="104" font-weight="800" text-anchor="middle" fill="#1f2a24">${n}</text></svg>`;
@@ -48,8 +53,10 @@ for (const a of assetDefs) {
   } else if (o.kind === "kidcamp") {
     const clock = /^clock-(\d+)$/.exec(a.key);
     const num = /^num-(\d+)$/.exec(a.key);
+    const price = /^price-(\d+)$/.exec(a.key);
     if (clock) await writeFile(dest, clockSvg(Number(clock[1])));
     else if (num) await writeFile(dest, numberSvg(Number(num[1])));
+    else if (price) await writeFile(dest, priceSvg(Number(price[1])));
     else throw new Error(`Chưa biết cách vẽ hình ${a.key}`);
   } else {
     const slug = o.folder.toLowerCase().replaceAll(" ", "_");

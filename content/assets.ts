@@ -47,7 +47,11 @@ export const ART_NAMES = [
   "flat", "street", "village", "teacher", "doctor", "nurse", "farmer", "driver",
   "worker", "singer", "hospital", "factory", "office", "morning", "afternoon", "evening",
   "cinema", "supermarket", "swimming-pool", "bookshop", "sports-centre", "badminton", "table-tennis", "basketball",
-  "volleyball", "sports-day",
+  "volleyball", "sports-day", "sunny", "rainy", "cloudy", "windy", "snowy", "hot",
+  "cold", "bus", "car", "bike", "motorbike", "train", "post-office", "bus-stop",
+  "t-shirt", "hat", "dress", "skirt", "shoes", "jeans", "loudly", "quietly",
+  "quickly", "slowly", "beautifully", "putting-up-a-tent", "building-a-campfire", "singing-songs", "telling-stories", "fishing",
+  "playing-games",
 ] as const;
 
 export const assetDefs: AssetDef[] = [
@@ -169,6 +173,11 @@ export const assetDefs: AssetDef[] = [
   fluent("cinema", "Cinema"),
   fluent("shopping-cart", "Shopping cart"),
   fluent("stadium", "Stadium"),
+  // Unit 18–19
+  ...[50, 80, 100, 200].map((n) => own(`price-${n}`)),
+  fluent("rabbit", "Rabbit face"),
+  fluent("peacock", "Peacock"),
+  fluent("cat", "Cat face"),
 ];
 
 export const assets: Asset[] = assetDefs.map((a) => ({ key: a.key, file: a.file, source: a.source, license: a.license }));

@@ -16,6 +16,11 @@ import jobs from "./en-g4/dialogues/u12-jobs";
 import appearance from "./en-g4/dialogues/u13-appearance";
 import daily from "./en-g4/dialogues/u14-daily";
 import weekends from "./en-g4/dialogues/u15-weekends";
+import weatherCall from "./en-g4/dialogues/u16-weather";
+import cityTour from "./en-g4/dialogues/u17-city";
+import shop from "./en-g4/dialogues/u18-shopping";
+import zoo from "./en-g4/dialogues/u19-animals";
+import campCall from "./en-g4/dialogues/u20-camp";
 
 export type SubjectInfo = {
   id: "english" | "math";
@@ -33,7 +38,7 @@ export const subjects: SubjectInfo[] = [
 
 export const courses: ReadonlyMap<string, Course> = new Map([[enG4.id, enG4]]);
 
-export const dialogues: Dialogue[] = [newFriend, morning, weekend, party, talent, schoolTour, timetable, favourite, sportsDay, summer, myHome, jobs, appearance, daily, weekends].map((d) => DialogueSchema.parse(d));
+export const dialogues: Dialogue[] = [newFriend, morning, weekend, party, talent, schoolTour, timetable, favourite, sportsDay, summer, myHome, jobs, appearance, daily, weekends, weatherCall, cityTour, shop, zoo, campCall].map((d) => DialogueSchema.parse(d));
 
 export function getCourse(courseId: string): Course | undefined {
   return courses.get(courseId);

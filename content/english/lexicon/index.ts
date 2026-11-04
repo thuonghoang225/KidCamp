@@ -13,8 +13,13 @@ import jobs from "./jobs";
 import appearance from "./appearance";
 import daily from "./daily";
 import weekends from "./weekends";
+import weather from "./weather";
+import city from "./city";
+import shopping from "./shopping";
+import animalWorld from "./animal-world";
+import camp from "./camp";
 
-const sources: WordInput[][] = [countries, animals, routines, week, party, abilities, school, sportsDay, holidays, home, jobs, appearance, daily, weekends];
+const sources: WordInput[][] = [countries, animals, routines, week, party, abilities, school, sportsDay, holidays, home, jobs, appearance, daily, weekends, weather, city, shopping, animalWorld, camp];
 const all = sources.flat().map((w) => Word.parse(w));
 
 const seen = new Set<string>();
