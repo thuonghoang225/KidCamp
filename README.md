@@ -28,7 +28,7 @@ Mở http://localhost:3000 → tạo hồ sơ bé → học. Dữ liệu lưu tr
    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
    PARENT_COOKIE_SECRET=$(openssl rand -hex 32)
    ```
-5. `pnpm dev` → đăng nhập bằng email (link đăng nhập) → tạo hồ sơ bé.
+5. `pnpm dev` → Tạo tài khoản (email + mật khẩu) → tạo hồ sơ bé. Trong Supabase tắt **Confirm email** (Authentication → Sign In / Providers → Email) để đăng ký xong vào được ngay.
 
 Deploy: đẩy repo lên GitHub → import vào Vercel → khai báo 3 biến môi trường như trên.
 

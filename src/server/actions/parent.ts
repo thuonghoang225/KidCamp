@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { parentCookieSecret } from "@/lib/env";
+import { getParentCookieSecret } from "@/lib/env";
 import { PARENT_COOKIE, PARENT_UNLOCK_MS, requireParent, requireParentUnlocked } from "@/server/auth/session";
 import { sign } from "@/server/auth/signed-cookie";
 import { repo } from "@/server/repo";
@@ -18,7 +18,7 @@ const Pin = z.string().regex(/^\d{4}$/, "Mã PIN gồm 4 chữ số");
 const failures = new Map<string, { count: number; until: number }>();
 
 async function setUnlocked(parentId: string) {
-  (await cookies()).set(PARENT_COOKIE, sign(parentId, PARENT_UNLOCK_MS, parentCookieSecret), {
+  (await cookies()).set(PARENT_COOKIE, sign(parentId, PARENT_UNLOCK_MS, getParentCookieSecret()), {
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: PARENT_UNLOCK_MS / 1000,
   });
 }

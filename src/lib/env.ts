@@ -21,8 +21,14 @@ export const env = parsed.data;
 /** Chưa cấu hình Supabase thì chạy chế độ Demo (dữ liệu lưu trong .data/). */
 export const isDemoMode = !env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!isDemoMode && process.env.NODE_ENV === "production" && !env.PARENT_COOKIE_SECRET) {
-  throw new Error("Cần đặt PARENT_COOKIE_SECRET khi chạy production với Supabase");
+/**
+ * Khóa ký cookie mở khóa khu phụ huynh. Kiểm tra lúc dùng (không phải lúc import),
+ * để `next build` không hỏng khi môi trường build chưa có biến này.
+ */
+export function getParentCookieSecret(): string {
+  if (env.PARENT_COOKIE_SECRET) return env.PARENT_COOKIE_SECRET;
+  if (!isDemoMode && process.env.NODE_ENV === "production") {
+    throw new Error("Cần đặt PARENT_COOKIE_SECRET (ít nhất 16 ký tự) khi chạy production với Supabase");
+  }
+  return "kidcamp-demo-secret-change-me";
 }
-
-export const parentCookieSecret = env.PARENT_COOKIE_SECRET ?? "kidcamp-demo-secret-change-me";

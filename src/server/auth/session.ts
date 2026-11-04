@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { isDemoMode, parentCookieSecret } from "@/lib/env";
+import { isDemoMode, getParentCookieSecret } from "@/lib/env";
 import { createSupabaseServer } from "@/lib/supabase/server";
 import { repo, type Child, type Parent } from "@/server/repo";
 import { verify } from "./signed-cookie";
@@ -33,7 +33,7 @@ export const requireChild = cache(async (): Promise<{ parent: Parent; child: Chi
 });
 
 export async function isParentUnlocked(parentId: string): Promise<boolean> {
-  return verify((await cookies()).get(PARENT_COOKIE)?.value, parentId, parentCookieSecret);
+  return verify((await cookies()).get(PARENT_COOKIE)?.value, parentId, getParentCookieSecret());
 }
 
 /** Góc phụ huynh: cần đã nhập PIN trong 10 phút gần nhất. */
