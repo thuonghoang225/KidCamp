@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* Bảng màu KidCamp: rừng thông, nắng trại hè, bầu trời */
+@theme {
+  --font-sans: "Nunito Variable", ui-rounded, system-ui, sans-serif;
+
+  /*
+   * Quy tắc tương phản (WCAG AA):
+   * - Chữ trắng trên nền màu đặc: dùng -600 trở lên (forest/sky/ember). sun luôn đi với chữ ink.
+   * - Chữ màu trên nền nhạt -50/-100 hoặc trắng/cream: dùng -700.
+   * - -500 chỉ dùng cho đồ họa: thanh tiến độ, biểu đồ, viền, icon lớn.
+   */
+  --color-forest-50: #eefaf2;
+  --color-forest-100: #d5f2de;
+  --color-forest-200: #a9e3bd;
+  --color-forest-500: #2f9e5b;
+  --color-forest-600: #22824a; /* trắng 4.8:1 */
+  --color-forest-700: #1b663b; /* trên forest-100 5.8:1 */
+  --color-forest-900: #0f3a22;
+
+  --color-sun-100: #fff4cc;
+  --color-sun-300: #ffdb66;
+  --color-sun-400: #ffc933;
+  --color-sun-500: #f5b301;
+  --color-sun-700: #8a6400; /* chữ trên sun-100 4.9:1 */
+
+  /* Xóa thang sky mặc định của Tailwind để không lẫn sắc độ lạ */
+  --color-sky-*: initial;
+  --color-sky-100: #e3f2ff;
+  --color-sky-400: #4fa8f0;
+  --color-sky-500: #2b8fe0;
+  --color-sky-600: #1f78c4; /* trắng 4.6:1 */
+  --color-sky-700: #175f9e; /* trên sky-100 5.8:1 */
+
+  --color-ember-100: #ffe6dc;
+  --color-ember-500: #f06a3a;
+  --color-ember-600: #c2461a; /* trắng 5.0:1, chữ lỗi trên trắng/cream */
+  --color-ember-700: #9e3812; /* trên ember-100 5.8:1 */
+
+  --color-cream: #fffbf2;
+  --color-ink: #1f2a24;
+  --color-muted: #5d6b63;
+
+  --radius-card: 1.5rem;
+  --shadow-pop: 0 6px 0 0 rgb(0 0 0 / 0.12);
+  --shadow-soft: 0 10px 30px -12px rgb(15 58 34 / 0.25);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Nút bấm kiểu "kẹo": lún xuống khi nhấn */
+.btn-candy {
+  box-shadow: var(--shadow-pop);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.btn-candy:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 0 rgb(0 0 0 / 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
