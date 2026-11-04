@@ -13,21 +13,29 @@ export const PARENT_COOKIE = "kc_parent";
 export const PARENT_UNLOCK_MS = 10 * 60 * 1000;
 export const DEMO_PARENT_ID = "demo-parent";
 
-/** Phụ huynh đang đăng nhập; chưa đăng nhập thì chuyển về /login. */
-export const requireParent = cache(async (): Promise<Parent> => {
+/**
+ * ID phụ huynh từ phiên đăng nhập. Dùng getClaims (kiểm tra chữ ký JWT ngay trên server,
+ * khóa công khai được cache) thay vì getUser (gọi API Auth mỗi lần) để bớt một lượt mạng.
+ */
+const currentParentId = cache(async (): Promise<string> => {
   await connection(); // luôn render theo request, không prerender lúc build
-  if (isDemoMode) return repo.getParent(DEMO_PARENT_ID);
+  if (isDemoMode) return DEMO_PARENT_ID;
   const supabase = await createSupabaseServer();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/login");
-  return repo.getParent(data.user.id);
+  const { data } = await supabase.auth.getClaims();
+  const sub = data?.claims?.sub;
+  if (!sub) redirect("/login");
+  return sub;
 });
+
+/** Phụ huynh đang đăng nhập; chưa đăng nhập thì chuyển về /login. */
+export const requireParent = cache(async (): Promise<Parent> => repo.getParent(await currentParentId()));
 
 /** Bé đang được chọn trên thiết bị này; chưa chọn thì về màn chọn hồ sơ. */
 export const requireChild = cache(async (): Promise<{ parent: Parent; child: Child }> => {
-  const parent = await requireParent();
+  const parentId = await currentParentId();
   const childId = (await cookies()).get(CHILD_COOKIE)?.value;
-  const child = childId ? await repo.getChild(parent.id, childId) : null;
+  // Hồ sơ phụ huynh và hồ sơ bé tải song song
+  const [parent, child] = await Promise.all([requireParent(), childId ? repo.getChild(parentId, childId) : Promise.resolve(null)]);
   if (!child) redirect("/profiles");
   return { parent, child };
 });
