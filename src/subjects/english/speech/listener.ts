@@ -27,17 +27,25 @@ function ctor(): RecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export type ListenErrorCode = "not-supported" | "no-speech" | "not-allowed" | "service-off" | "no-mic" | "network" | "aborted" | "other";
+export type ListenErrorCode = "not-supported" | "no-speech" | "not-allowed" | "service-off" | "no-mic" | "language" | "network" | "aborted" | "other";
+
+let lastRaw = "";
+
+/** Mã lỗi gốc lần gần nhất (vd. "service-not-allowed"), hiện nhỏ trên màn hình để bố mẹ gửi khi cần hỗ trợ. */
+export function lastListenErrorRaw(): string {
+  return lastRaw;
+}
 
 export class ListenError extends Error {
   constructor(public code: ListenErrorCode, public raw?: string) {
     super(raw ? `${code} (${raw})` : code);
+    lastRaw = raw ?? code;
   }
 }
 
 /** Lỗi do máy/quyền (không phải bé nói nhỏ): hiện hướng dẫn sửa thay vì nút micro. */
 export function isBlockingError(code: ListenErrorCode): boolean {
-  return code === "not-supported" || code === "not-allowed" || code === "service-off" || code === "no-mic";
+  return code === "not-supported" || code === "not-allowed" || code === "service-off" || code === "no-mic" || code === "language";
 }
 
 /** Mở từ biểu tượng màn hình chính (chế độ app, không có thanh địa chỉ). */
@@ -71,6 +79,10 @@ export function listenHelp(code: ListenErrorCode): string {
         ? "Máy đang tắt Đọc chính tả nên chưa nghe được. Vào Cài đặt → Cài đặt chung → Bàn phím → bật Đọc chính tả, rồi thử lại."
           + (app ? " Nếu vẫn không được, mở KidCamp bằng Safari thay vì biểu tượng màn hình chính." : "")
         : "Dịch vụ nhận giọng nói của trình duyệt đang bị tắt. Kiểm tra cài đặt rồi thử lại.";
+    case "language":
+      return apple
+        ? "Máy chưa có Đọc chính tả tiếng Anh. Vào Cài đặt → Cài đặt chung → Bàn phím → Bàn phím → Thêm bàn phím mới → English (US), rồi thử lại."
+        : "Trình duyệt chưa hỗ trợ nghe tiếng Anh (en-US) trên máy này.";
     case "no-mic":
       return "Không mở được micro. Kiểm tra micro không bị app khác (gọi video, ghi âm) đang dùng rồi thử lại.";
     default:
@@ -121,7 +133,7 @@ export function createListener(lang = "en-US"): Listener {
           clearTimeout(hardStop);
           const map: Record<string, ListenErrorCode> = {
             "no-speech": "no-speech", "not-allowed": "not-allowed", "service-not-allowed": "service-off",
-            "audio-capture": "no-mic", network: "network", aborted: "aborted",
+            "audio-capture": "no-mic", "language-not-supported": "language", network: "network", aborted: "aborted",
           };
           console.warn("[KidCamp] speech recognition error:", e.error);
           reject(new ListenError(map[e.error] ?? "other", e.error));

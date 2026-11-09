@@ -11,7 +11,7 @@ import { sfx } from "@/core/sfx";
 import { speaker } from "@/subjects/english/speech/speaker";
 import { FRIEND_VOICES, isVoicePreference } from "@/subjects/english/speech/audio-key";
 import { SpeedToggle } from "@/components/exercises/SpeedToggle";
-import { listener, ListenError, isBlockingError, listenHelp, type ListenErrorCode } from "@/subjects/english/speech/listener";
+import { listener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { KidCharacter } from "@/components/kid/KidCharacter";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -290,7 +290,7 @@ export function Talk({
                 </>
               )}
             </div>
-            {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}</p>}
+            {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}{" "}<span className="font-normal text-muted">(mã lỗi: {blocked ? lastListenErrorRaw() : "no-api"})</span></p>}
             <p className="text-sm font-bold text-muted">{phase === "listening" ? "Đang nghe…" : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
           </div>
         ) : (

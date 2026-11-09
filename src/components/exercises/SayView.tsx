@@ -5,7 +5,7 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { clsx } from "clsx";
 import type { Response, SaySentence, SayWord } from "@/core/exercises/types";
 import { scoreSpeech, type SpeechScore } from "@/core/grading/speech";
-import { listener, ListenError, isBlockingError, listenHelp, type ListenErrorCode } from "@/subjects/english/speech/listener";
+import { listener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faMicrophone } from "@/components/icons";
@@ -46,7 +46,7 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
       if (isBlockingError(code)) setBlocked(code);
       else {
         setMisses((m) => m + 1);
-        setMessage(code === "no-speech" ? "Chưa nghe thấy con nói. Bấm micro rồi nói to hơn nhé." : "Có lỗi khi nghe, thử lại nhé.");
+        setMessage(code === "no-speech" ? "Chưa nghe thấy con nói. Bấm micro rồi nói to hơn nhé." : `Có lỗi khi nghe, thử lại nhé. (mã lỗi: ${e instanceof ListenError ? e.raw ?? code : String(e)})`);
       }
     } finally {
       setListening(false);
@@ -80,7 +80,7 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
 
       {supported === false ? (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-3 font-bold text-ink" role="alert">{listenHelp(blockCode)}</p>
+          <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-3 font-bold text-ink" role="alert">{listenHelp(blockCode)}{" "}<span className="font-normal text-muted">(mã lỗi: {blocked ? lastListenErrorRaw() : "no-api"})</span></p>
           <p className="max-w-md text-muted">Tạm thời con nói to theo mẫu rồi bấm nút bên dưới nhé.</p>
           <div className="flex flex-wrap justify-center gap-3">
             {blockCode !== "not-supported" && (
