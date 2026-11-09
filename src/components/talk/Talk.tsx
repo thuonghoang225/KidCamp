@@ -11,7 +11,7 @@ import { sfx } from "@/core/sfx";
 import { speaker } from "@/subjects/english/speech/speaker";
 import { FRIEND_VOICES, isVoicePreference } from "@/subjects/english/speech/audio-key";
 import { SpeedToggle } from "@/components/exercises/SpeedToggle";
-import { listener, ListenError } from "@/subjects/english/speech/listener";
+import { listener, ListenError, isBlockingError, listenHelp, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { KidCharacter } from "@/components/kid/KidCharacter";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -54,8 +54,9 @@ export function Talk({
   const [hintLevel, setHintLevel] = useState(0);
   const [tries, setTries] = useState(0);
   const canListen = useSyncExternalStore(noopSubscribe, () => listener.isSupported(), () => true);
-  const [blocked, setBlocked] = useState(false);
+  const [blocked, setBlocked] = useState<ListenErrorCode | null>(null);
   const supported = canListen && !blocked;
+  const blockCode: ListenErrorCode = blocked ?? "not-supported";
   const [stats, setStats] = useState({ spoken: 0, passed: 0, latencies: [] as number[] });
   const [error, setError] = useState<string | null>(null);
   const kidTurnAt = useRef(0);
@@ -182,7 +183,7 @@ export function Talk({
       await submit(transcript, false);
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
-      if (code === "not-allowed" || code === "not-supported") setBlocked(true);
+      if (isBlockingError(code)) setBlocked(code);
       setPhase("kid");
     }
   }
@@ -279,9 +280,17 @@ export function Talk({
                   <Icon icon={faMicrophone} />
                 </button>
               ) : (
-                <Button size="lg" onClick={() => submit("", true)}><Icon icon={faCheck} /> Con đã nói</Button>
+                <>
+                  {blockCode !== "not-supported" && (
+                    <Button tone="white" size="lg" onClick={() => { setBlocked(null); void listen(); }}>
+                      <Icon icon={faMicrophone} /> Thử lại
+                    </Button>
+                  )}
+                  <Button size="lg" onClick={() => submit("", true)}><Icon icon={faCheck} /> Con đã nói</Button>
+                </>
               )}
             </div>
+            {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}</p>}
             <p className="text-sm font-bold text-muted">{phase === "listening" ? "Đang nghe…" : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
           </div>
         ) : (

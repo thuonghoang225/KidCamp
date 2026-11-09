@@ -5,7 +5,7 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { clsx } from "clsx";
 import type { Response, SaySentence, SayWord } from "@/core/exercises/types";
 import { scoreSpeech, type SpeechScore } from "@/core/grading/speech";
-import { listener, ListenError } from "@/subjects/english/speech/listener";
+import { listener, ListenError, isBlockingError, listenHelp, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faMicrophone } from "@/components/icons";
@@ -18,8 +18,9 @@ const noopSubscribe = () => () => {};
 /** Bé nói từ / câu mẫu. Chấm ngay để tô màu từng từ; tối đa 3 lần rồi cho qua. */
 export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; onAnswer: (r: Response) => void; locked: boolean }) {
   const canListen = useSyncExternalStore(noopSubscribe, () => listener.isSupported(), () => null);
-  const [blocked, setBlocked] = useState(false);
+  const [blocked, setBlocked] = useState<ListenErrorCode | null>(null);
   const supported = blocked ? false : canListen;
+  const blockCode: ListenErrorCode = blocked ?? "not-supported";
   const [listening, setListening] = useState(false);
   const [tries, setTries] = useState(0);
   const [result, setResult] = useState<SpeechScore | null>(null);
@@ -42,7 +43,7 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
       else setMessage("Gần đúng rồi! Nghe mẫu rồi nói lại nhé.");
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
-      if (code === "not-allowed" || code === "not-supported") setBlocked(true);
+      if (isBlockingError(code)) setBlocked(code);
       else {
         setMisses((m) => m + 1);
         setMessage(code === "no-speech" ? "Chưa nghe thấy con nói. Bấm micro rồi nói to hơn nhé." : "Có lỗi khi nghe, thử lại nhé.");
@@ -79,10 +80,19 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
 
       {supported === false ? (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className="max-w-md text-muted">Thiết bị này chưa nghe được giọng nói. Con nói to theo mẫu rồi bấm nút bên dưới nhé.</p>
-          <Button size="lg" disabled={locked} onClick={() => onAnswer({ type: "speech", transcript: "", selfReported: true })}>
-            <Icon icon={faCheck} /> Con đã nói
-          </Button>
+          <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-3 font-bold text-ink" role="alert">{listenHelp(blockCode)}</p>
+          <p className="max-w-md text-muted">Tạm thời con nói to theo mẫu rồi bấm nút bên dưới nhé.</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {blockCode !== "not-supported" && (
+              // Bố mẹ sửa cài đặt xong thì thử nghe lại ngay, không phải tải lại bài
+              <Button tone="white" size="lg" disabled={locked} onClick={() => { setBlocked(null); void listen(); }}>
+                <Icon icon={faMicrophone} /> Thử lại micro
+              </Button>
+            )}
+            <Button size="lg" disabled={locked} onClick={() => onAnswer({ type: "speech", transcript: "", selfReported: true })}>
+              <Icon icon={faCheck} /> Con đã nói
+            </Button>
+          </div>
         </div>
       ) : (
         <button
