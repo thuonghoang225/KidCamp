@@ -10,16 +10,16 @@ export function KidHeader({ child, summary, profileCount }: { child: Child; summ
   const pct = Math.min(100, Math.round((summary.minutesToday / summary.goalMin) * 100));
   return (
     <header className="sticky top-0 z-10 border-b border-forest-100 bg-cream/90 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-2">
-        <Link href="/home" className="flex items-center gap-2" aria-label="Về trang chủ">
-          <KidCharacter faceUrl={summary.faceUrl} costumeId={child.costumeId} className="h-14 w-11" />
-          <span className="text-xl font-black text-forest-700">{child.nickname}</span>
+      <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
+        <Link href="/home" className="flex min-w-0 items-center gap-2" aria-label="Về trang chủ">
+          <KidCharacter faceUrl={summary.faceUrl} costumeId={child.costumeId} className="h-14 w-11 shrink-0" />
+          <span className="truncate text-lg font-black text-forest-700 sm:text-xl">{child.nickname}</span>
         </Link>
-        <div className="ml-auto flex items-center gap-2 text-lg font-extrabold">
-          <span className="flex items-center gap-1 rounded-full bg-ember-100 px-3 py-1 text-ember-700" title="Chuỗi ngày học">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 text-base font-extrabold sm:gap-2 sm:text-lg">
+          <span className="flex items-center gap-1 rounded-full bg-ember-100 px-2.5 py-1 sm:px-3 text-ember-700" title="Chuỗi ngày học">
             <Icon icon={faFire} /> {summary.streak}
           </span>
-          <span className="flex items-center gap-1 rounded-full bg-sun-100 px-3 py-1 text-sun-700" title="Tổng số sao">
+          <span className="flex items-center gap-1 rounded-full bg-sun-100 px-2.5 py-1 sm:px-3 text-sun-700" title="Tổng số sao">
             <Icon icon={faStar} /> {summary.totalStars}
           </span>
           <span className="hidden items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-sm text-sky-700 sm:flex" title="Phút học hôm nay">
@@ -30,7 +30,7 @@ export function KidHeader({ child, summary, profileCount }: { child: Child; summ
           </span>
           {profileCount > 1 && (
             <form action={switchProfile}>
-              <button className="flex items-center gap-1 rounded-full px-3 py-2 text-base text-forest-700 hover:bg-forest-50" title="Đổi người học">
+              <button className="flex items-center gap-1 rounded-full px-2 py-2 text-base text-forest-700 sm:px-3 hover:bg-forest-50" title="Đổi người học">
                 <Icon icon={faUserGroup} /> <span className="hidden sm:inline">Đổi bạn</span>
               </button>
             </form>
