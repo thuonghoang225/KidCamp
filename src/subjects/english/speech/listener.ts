@@ -1,5 +1,8 @@
 "use client";
 
+import { sfx } from "@/core/sfx";
+import { speaker } from "./speaker";
+
 /** Nghe bé nói và trả về chữ, dùng Web Speech API của trình duyệt. */
 export interface Listener {
   isSupported(): boolean;
@@ -147,6 +150,10 @@ export function createListener(lang = "en-US"): Listener {
           }
           current = null;
         };
+        // iPad/Safari: đang phát âm thanh (file mp3, giọng trình duyệt, hiệu ứng) thì nhận giọng nói
+        // dễ bị từ chối với lỗi service-not-allowed. Dừng hết trước khi mở micro (vẫn trong cú bấm của bé).
+        speaker.stop();
+        sfx.release();
         try {
           rec.start();
         } catch (err) {

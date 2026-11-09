@@ -61,6 +61,10 @@ function playNotes(notes: Note[], volume = 0.25) {
 const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, E6 = 1318.5, G6 = 1568;
 
 export const sfx = {
+  /** Nhả loa trước khi mở micro: trên iPad, AudioContext đang chạy có thể làm nhận giọng nói báo lỗi. */
+  release() {
+    if (ctx && ctx.state === "running") void ctx.suspend().catch(() => {});
+  },
   /** "Ting-ting!" đi lên, vui tai. */
   correct() {
     playNotes([
