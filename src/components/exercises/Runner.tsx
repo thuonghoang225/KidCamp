@@ -14,7 +14,7 @@ import { isVoicePreference } from "@/subjects/english/speech/audio-key";
 import { SpeedToggle } from "./SpeedToggle";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { faArrowRight, faFire, faVolumeHigh, faVolumeXmark, faXmark } from "@/components/icons";
+import { faArrowRight, faBell, faBellSlash, faFire, faXmark } from "@/components/icons";
 import { Stars } from "@/components/kid/Stars";
 import { KidCharacter } from "@/components/kid/KidCharacter";
 import { ChoiceView } from "./ChoiceView";
@@ -196,17 +196,20 @@ function ExerciseView({ ex, onAnswer, locked, picked }: { ex: Exercise; onAnswer
 function SfxToggle() {
   const muted = useSyncExternalStore(sfx.subscribe, sfx.isMuted, () => false);
   return (
-    <Button
-      tone="ghost"
+    // Icon chuông (không dùng icon loa) để khỏi nhầm với nút "Nghe" trong bài; tách xa nút tốc độ.
+    <button
+      type="button"
+      title={muted ? "Bật tiếng hiệu ứng" : "Tắt tiếng hiệu ứng"}
       aria-label={muted ? "Bật tiếng hiệu ứng" : "Tắt tiếng hiệu ứng"}
       aria-pressed={!muted}
       onClick={() => {
         sfx.setMuted(!muted);
         if (muted) sfx.correct();
       }}
+      className="ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-forest-100 bg-white hover:bg-forest-50"
     >
-      <Icon icon={muted ? faVolumeXmark : faVolumeHigh} className={clsx("text-xl", muted ? "text-muted" : "text-forest-600")} />
-    </Button>
+      <Icon icon={muted ? faBellSlash : faBell} className={clsx("text-base", muted ? "text-muted" : "text-forest-600")} />
+    </button>
   );
 }
 

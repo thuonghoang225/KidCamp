@@ -9,7 +9,7 @@ import { listener, ListenError } from "@/subjects/english/speech/listener";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faMicrophone } from "@/components/icons";
-import { SpeakButton } from "./SpeakButton";
+import { PromptCard } from "./SpeakButton";
 
 export const MAX_SPEECH_TRIES = 3;
 
@@ -57,16 +57,15 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
       <p className="text-xl font-bold text-muted">{ex.kind === "say-word" ? "Nghe rồi nói theo" : "Trả lời bằng giọng nói"}</p>
 
       {ex.kind === "say-sentence" && (
-        <div className="flex items-center gap-4 rounded-3xl bg-white px-6 py-4 shadow-[var(--shadow-soft)]">
+        <PromptCard text={ex.question} autoPlay>
           {ex.image && <Image src={ex.image} alt="" width={96} height={96} className="h-20 w-20 rounded-xl object-contain" />}
           <p className="text-2xl font-extrabold">{ex.question}</p>
-          <SpeakButton text={ex.question} autoPlay size="sm" />
-        </div>
+        </PromptCard>
       )}
       {ex.kind === "say-word" && ex.image && <Image src={ex.image} alt="" width={176} height={176} className="h-40 w-40 rounded-2xl object-contain" />}
 
-      <div className="flex items-center gap-4">
-        <p className="text-3xl font-black text-forest-700">
+      <PromptCard text={target} autoPlay={ex.kind === "say-word"}>
+        <p className="py-2 text-3xl font-black text-forest-700">
           {result
             ? result.words.map((w, i) => (
                 <span key={i} className={clsx("mr-2", w.matched ? "text-forest-600" : "text-ember-600 underline decoration-wavy")}>
@@ -75,8 +74,7 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
               ))
             : target}
         </p>
-        <SpeakButton text={target} autoPlay={ex.kind === "say-word"} />
-      </div>
+      </PromptCard>
       {ex.kind === "say-word" && ex.meaning && <p className="text-lg text-muted">{ex.meaning}</p>}
 
       {supported === false ? (

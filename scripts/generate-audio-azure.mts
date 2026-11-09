@@ -45,14 +45,18 @@ if (!existsSync(listPath)) {
   console.error("Chưa có .data/speech.json. Chạy: pnpm audio:list");
   process.exit(1);
 }
-const items: Array<{ key: string; text: string }> = JSON.parse(readFileSync(listPath, "utf8"));
+const items: Array<{ key: string; text: string; ipa?: string }> = JSON.parse(readFileSync(listPath, "utf8"));
 
 const xml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function synth(text: string, voice: string): Promise<Buffer> {
-  // Dấu "…" là chỗ bé tự nói: đọc thành một nhịp nghỉ (giống script Kokoro)
-  const ssml = `<speak version="1.0" xml:lang="en-US"><voice name="${voice}">${xml(text.replace(/…/g, ","))}</voice></speak>`;
+async function synth(text: string, voice: string, ipa?: string): Promise<Buffer> {
+  // Âm đứng riêng: mẫu "âm – nghỉ – âm" đọc chậm (giống script Kokoro). Dấu "…" là chỗ bé tự nói: đọc thành một nhịp nghỉ
+  const ph = ipa && `<phoneme alphabet="ipa" ph="ˈ${xml(ipa)}">a</phoneme>`;
+  const body = ph
+    ? `<prosody rate="-35%">${ph}<break time="600ms"/>${ph}</prosody>`
+    : xml(text.replace(/…/g, ","));
+  const ssml = `<speak version="1.0" xml:lang="en-US"><voice name="${voice}">${body}</voice></speak>`;
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: "POST",
@@ -82,7 +86,7 @@ for (const v of voices) {
   const todo = items.filter((it) => !existsSync(path.join(dir, `${it.key}.mp3`)));
   console.log(`${v.label}: cần tạo ${todo.length}/${items.length} câu`);
   for (const [i, it] of todo.entries()) {
-    writeFileSync(path.join(dir, `${it.key}.mp3`), await synth(it.text, v.engineVoice));
+    writeFileSync(path.join(dir, `${it.key}.mp3`), await synth(it.text, v.engineVoice, it.ipa));
     made++;
     if ((i + 1) % 50 === 0) console.log(`  ${i + 1}/${todo.length}`);
   }

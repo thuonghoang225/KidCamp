@@ -7,36 +7,43 @@ import type { OrderWords, Response, SpellWord } from "@/core/exercises/types";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faRotateRight } from "@/components/icons";
-import { SpeakButton } from "./SpeakButton";
+import { speaker } from "@/subjects/english/speech/speaker";
+import { PromptCard } from "./SpeakButton";
 
 /** Xếp chữ cái thành từ (spell-word) hoặc xếp từ thành câu (order-words). */
 export function TilesView({ ex, onAnswer, locked }: { ex: SpellWord | OrderWords; onAnswer: (r: Response) => void; locked: boolean }) {
   const [placed, setPlaced] = useState<number[]>([]);
   const isSpell = ex.kind === "spell-word";
-  const text = placed.map((i) => ex.tiles[i]).join(isSpell ? "" : " ");
+  const join = (idx: number[]) => idx.map((i) => ex.tiles[i]).join(isSpell ? "" : " ");
+  const text = join(placed);
+
+  function place(i: number) {
+    const next = [...placed, i];
+    setPlaced(next);
+    // Xếp xong miếng cuối: đọc lại từ/câu bé vừa ghép để bé tự nghe trước khi bấm Kiểm tra
+    if (next.length === ex.tiles.length) void speaker.play(join(next));
+  }
 
   return (
     <div className="flex flex-col items-center gap-6">
       {isSpell ? (
         <>
           <p className="text-xl font-bold text-muted">Xếp chữ cái thành từ</p>
-          <div className="flex items-center gap-4">
+          <PromptCard text={ex.audio} autoPlay>
             {ex.hint ? (
-              <span className="rounded-2xl bg-white px-5 py-3 text-2xl font-extrabold shadow-[var(--shadow-soft)]">{ex.hint}</span>
+              <span className="py-3 text-2xl font-extrabold">{ex.hint}</span>
             ) : (
               <Image src={ex.image} alt="" width={176} height={176} className="h-40 w-40 rounded-2xl object-contain" />
             )}
-            <SpeakButton text={ex.audio} autoPlay />
-          </div>
+          </PromptCard>
         </>
       ) : (
         <>
           <p className="text-xl font-bold text-muted">Xếp các từ thành câu trả lời</p>
-          <div className="flex items-center gap-4 rounded-3xl bg-white px-6 py-4 shadow-[var(--shadow-soft)]">
+          <PromptCard text={ex.question} autoPlay>
             {ex.image && <Image src={ex.image} alt="" width={96} height={96} className="h-20 w-20 rounded-xl object-contain" />}
             <p className="text-2xl font-extrabold">{ex.question}</p>
-            <SpeakButton text={ex.question} autoPlay size="sm" />
-          </div>
+          </PromptCard>
         </>
       )}
 
@@ -61,7 +68,7 @@ export function TilesView({ ex, onAnswer, locked }: { ex: SpellWord | OrderWords
             key={i}
             type="button"
             disabled={locked || placed.includes(i)}
-            onClick={() => setPlaced((p) => [...p, i])}
+            onClick={() => place(i)}
             className={clsx(
               "btn-candy rounded-xl bg-white px-4 py-2 text-2xl font-extrabold ring-2 ring-forest-100",
               placed.includes(i) && "invisible",

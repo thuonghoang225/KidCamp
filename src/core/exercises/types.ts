@@ -18,7 +18,8 @@ export type PickAnswer = Base<"pick-answer"> & { question: string; image?: strin
 export type OrderWords = Base<"order-words"> & { question: string; image?: string; answer: string; tiles: string[] };
 export type SaySentence = Base<"say-sentence"> & { question: string; image?: string; model: string; accept: string[] };
 export type Chant = Base<"chant"> & { title: string; lines: Array<{ text: string; gap?: string }> };
-export type PickSound = Base<"pick-sound"> & { sound: string; hint: string; options: Choice[]; answerId: string };
+/** `example`: từ mẫu chứa âm (từ cuối của hint, vd. "here"), phát khi bé bấm nghe âm. */
+export type PickSound = Base<"pick-sound"> & { sound: string; hint: string; example: string; options: Choice[]; answerId: string };
 
 export type Exercise =
   | ListenPickImage

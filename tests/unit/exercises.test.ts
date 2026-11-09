@@ -3,6 +3,7 @@ import { getCourse, getUnit } from "@content/courses";
 import { buildStationSession, dueItems, nextStation } from "@/core/session/build";
 import { grade } from "@/core/exercises/grade";
 import type { Exercise } from "@/core/exercises/types";
+import { soundExample } from "@/core/exercises/generate";
 
 const unit = getUnit("en-g4", "u01")!;
 
@@ -96,5 +97,12 @@ describe("phương án nhiễu", () => {
           expect(ex.options).toHaveLength(3);
           for (const o of ex.options.filter((o) => o.id !== ex.answerId)) expect(open2(o.label), `${right} / ${o.label}`).not.toBe(open2(right));
         }
+  });
+});
+
+describe("bài chọn âm", () => {
+  it("mọi âm có từ mẫu tiếng Anh để phát khi bé bấm nghe", () => {
+    for (const u of getCourse("en-g4")!.units)
+      for (const set of u.phonics) expect(soundExample(set.hint), `${u.id} ${set.sound} "${set.hint}"`).toMatch(/^[A-Za-z]+$/);
   });
 });

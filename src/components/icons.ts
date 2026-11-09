@@ -2,7 +2,7 @@
  * Mọi icon Font Awesome dùng trong app khai báo tại đây, để chỉ đóng gói icon đang dùng.
  */
 export {
-  faArrowLeft, faArrowRight, faBookOpen, faCalculator, faCampground, faCheck, faChevronRight, faClock,
+  faArrowLeft, faArrowRight, faBell, faBellSlash, faBookOpen, faCalculator, faCampground, faCheck, faChevronRight, faClock,
   faComments, faEarListen, faFire, faGear, faHouse, faLanguage, faLock, faLockOpen, faMicrophone, faMicrophoneSlash,
   faMusic, faPlay, faPlus, faRotateRight, faStar, faTrophy, faUserGroup, faVolumeHigh, faVolumeXmark, faGaugeHigh, faGaugeSimple, faXmark, faBolt,
   faMasksTheater, faLightbulb, faChartLine, faCamera, faTrash, faRightFromBracket, faSpellCheck, faShapes,

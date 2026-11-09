@@ -48,3 +48,7 @@ next-env.d.ts
 # mô hình và môi trường tạo giọng đọc
 /.tts-models/
 /.venv-tts/
+
+# Công cụ tạo giọng đọc (Kokoro)
+/.venv-tts/
+/.tts-models/

@@ -12,7 +12,8 @@ import { audioKey, VOICES, type Voice, type VoicePreference } from "./audio-key"
 export type SpeechRate = "normal" | "slow";
 
 export interface Speaker {
-  play(text: string, opts?: { rate?: number; voice?: Voice }): Promise<void>;
+  /** `fallback`: câu đọc bằng giọng trình duyệt khi chưa có file (vd. âm /ɪə/ → đọc từ mẫu "here"). */
+  play(text: string, opts?: { rate?: number; voice?: Voice; fallback?: string }): Promise<void>;
   stop(): void;
   /** Chuyển sang giọng kế tiếp (chỉ khi đang luân phiên). */
   nextVoice(): Voice;
@@ -162,7 +163,10 @@ export function createSpeaker(lang = "en-US"): Speaker {
       const m = await loadManifest();
       const key = audioKey(text);
       // Giọng đã chọn chưa có file (VD: chưa tạo giọng Azure): dùng giọng Kokoro mặc định
-      const usable = m?.keys.has(key) ? (m.voices.includes(voice) ? voice : m.voices.find((v) => VOICES.includes(v))) : undefined;
+      const kokoro = m?.voices.includes(voice) ? voice : (m?.voices.find((v) => VOICES.includes(v)) ?? VOICES[0]);
+      // Câu có `fallback` (âm đứng riêng) vẫn thử phát file dù manifest chưa có khóa: manifest trình duyệt
+      // giữ trong bộ nhớ đệm có thể là bản cũ, và đọc thay bằng từ mẫu dễ làm bé hiểu nhầm.
+      const usable = m?.keys.has(key) ? kokoro : opts?.fallback ? kokoro : undefined;
       if (usable) {
         audio ??= new Audio();
         const el = audio;
@@ -180,7 +184,7 @@ export function createSpeaker(lang = "en-US"): Speaker {
         if (ok) return;
       }
       // Chưa có file (hoặc trình duyệt chặn phát): dùng giọng trình duyệt
-      await speakWithBrowser(text, lang, (opts?.rate ?? 0.95) * (slow ? SLOW_FACTOR : 1));
+      await speakWithBrowser(opts?.fallback ?? text, lang, (opts?.rate ?? 0.95) * (slow ? SLOW_FACTOR : 1));
     },
     stop,
   };

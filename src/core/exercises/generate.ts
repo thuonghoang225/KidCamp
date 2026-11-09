@@ -156,6 +156,11 @@ export function saySentence(pattern: Pattern, rng: Rng): SaySentence {
 
 /* ---------------- Trạm của Unit ---------------- */
 
+/** Từ mẫu của một âm: từ tiếng Anh cuối trong hint ("như trong here" → "here"). */
+export function soundExample(hint: string): string {
+  return hint.trim().split(/\s+/).pop() ?? "";
+}
+
 function phonicsExercises(unit: Unit, rng: Rng): Exercise[] {
   const out: Exercise[] = [];
   for (const set of unit.phonics) {
@@ -164,7 +169,7 @@ function phonicsExercises(unit: Unit, rng: Rng): Exercise[] {
         [{ id: target, label: target, audio: target }, ...sample(set.others, 2, rng).map((w) => ({ id: w, label: w, audio: w }))],
         rng,
       );
-      out.push({ key: key("ps", target), kind: "pick-sound", itemId: null, sound: set.sound, hint: set.hint, options, answerId: target });
+      out.push({ key: key("ps", target), kind: "pick-sound", itemId: null, sound: set.sound, hint: set.hint, example: soundExample(set.hint), options, answerId: target });
     }
     for (const w of sample(set.target, 2, rng)) {
       out.push({ key: key("sw", w), kind: "say-word", itemId: null, text: w, accept: [w] });
