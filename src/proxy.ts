@@ -8,6 +8,12 @@ const PUBLIC = ["/login", "/auth"];
  * Đây chỉ là kiểm tra lạc quan; quyền thật được kiểm tra ở server (requireParent) và RLS.
  */
 export async function proxy(request: NextRequest) {
+  // "/" không có nội dung: chuyển ngay ở đây thay vì để trang "/" prerender thành một
+  // phản hồi 307 có thân HTML trắng (bị cache 1 năm), dễ gây trang trắng khi mở từ màn hình chính
+  if (request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/home", request.url));
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return NextResponse.next(); // chế độ Demo
@@ -33,5 +39,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|img/|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|.*\\.(?:png|svg|webp|jpg)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|img/|favicon.ico|icon.svg|apple-icon|pwa-icon/|manifest.webmanifest|.*\\.(?:png|svg|webp|jpg)$).*)"],
 };
