@@ -79,8 +79,8 @@ export function listenHelp(code: ListenErrorCode): string {
         : "KidCamp chưa được dùng micro. Bấm biểu tượng ổ khóa cạnh thanh địa chỉ → cho phép Micro, rồi tải lại trang.";
     case "service-off":
       return apple
-        ? "iPad đang chặn dịch vụ giọng nói (cần cả Siri lẫn Đọc chính tả). Vào Cài đặt → Siri & Tìm kiếm → bật \"Nhấn nút Home/nút trên cùng để bật Siri\", và Cài đặt → Cài đặt chung → Bàn phím → bật Đọc chính tả. Rồi đóng hẳn Safari, mở lại và thử."
-          + (app ? " Nếu vẫn không được, mở KidCamp bằng Safari thay vì biểu tượng màn hình chính." : "")
+        ? "iPad chưa cho phép nhận dạng lời nói. Vào Cài đặt → Quyền riêng tư & Bảo mật → Nhận dạng lời nói → bật cho Safari. Nếu vẫn lỗi: bật Siri (Cài đặt → Siri & Tìm kiếm) và Đọc chính tả (Cài đặt → Cài đặt chung → Bàn phím), rồi đóng hẳn Safari và mở lại."
+          + (app ? " Hoặc mở KidCamp bằng Safari thay vì biểu tượng màn hình chính." : "")
         : "Dịch vụ nhận giọng nói của trình duyệt đang bị tắt. Kiểm tra cài đặt rồi thử lại.";
     case "language":
       return apple
