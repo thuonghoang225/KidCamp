@@ -22,6 +22,8 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
   const supported = blocked ? false : canListen;
   const blockCode: ListenErrorCode = blocked ?? "not-supported";
   const [listening, setListening] = useState(false);
+  /** Micro đã thật sự thu chưa (iPad mất ~0,3–1 giây sau khi bấm). */
+  const [ready, setReady] = useState(false);
   const [tries, setTries] = useState(0);
   const [result, setResult] = useState<SpeechScore | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -31,9 +33,10 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
 
   async function listen() {
     setMessage(null);
+    setReady(false);
     setListening(true);
     try {
-      const { transcript } = await listener.listen({ expected: ex.accept });
+      const { transcript } = await listener.listen({ expected: ex.accept, onReady: () => setReady(true) });
       const s = scoreSpeech(transcript, ex.accept);
       setResult(s);
       if (s.score > best.current.score) best.current = { transcript, score: s.score };
@@ -50,6 +53,7 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
       }
     } finally {
       setListening(false);
+      setReady(false);
     }
   }
 
@@ -102,14 +106,14 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
           aria-label="Bấm để nói"
           className={clsx(
             "btn-candy flex h-28 w-28 items-center justify-center rounded-full text-5xl text-white",
-            listening ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-forest-500",
+            listening ? (ready ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-sun-400 !text-ink") : "bg-forest-500",
           )}
         >
           <Icon icon={faMicrophone} />
         </button>
       )}
       <p className="min-h-6 text-center text-lg font-bold text-muted">
-        {listening ? "Đang nghe…" : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
+        {listening ? (ready ? "Con nói đi!" : "Chờ chút, micro đang mở…") : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
       </p>
       {supported && (misses >= 2 || tries >= 1) && !locked && !listening && (
         // Micro không nghe được (phòng ồn, máy lỗi): không để bé bị kẹt

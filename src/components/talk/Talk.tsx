@@ -51,6 +51,8 @@ export function Talk({
   const [i, setI] = useState(0);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [phase, setPhase] = useState<"loading" | "bot" | "kid" | "listening" | "feedback" | "done">("loading");
+  /** Micro đã thật sự thu chưa (iPad mất ~0,3–1 giây sau khi bấm). */
+  const [micReady, setMicReady] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
   const [tries, setTries] = useState(0);
   const canListen = useSyncExternalStore(noopSubscribe, () => listener.isSupported(), () => true);
@@ -177,9 +179,10 @@ export function Talk({
   }
 
   async function listen() {
+    setMicReady(false);
     setPhase("listening");
     try {
-      const { transcript } = await listener.listen({ expected: step?.hints.slice(0, 1) });
+      const { transcript } = await listener.listen({ expected: step?.hints.slice(0, 1), onReady: () => setMicReady(true) });
       await submit(transcript, false);
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
@@ -275,7 +278,7 @@ export function Talk({
                   onClick={listen}
                   disabled={phase === "listening"}
                   aria-label="Bấm để nói"
-                  className={clsx("btn-candy flex h-24 w-24 items-center justify-center rounded-full text-4xl text-white", phase === "listening" ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-forest-500")}
+                  className={clsx("btn-candy flex h-24 w-24 items-center justify-center rounded-full text-4xl text-white", phase === "listening" ? (micReady ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-sun-400 !text-ink") : "bg-forest-500")}
                 >
                   <Icon icon={faMicrophone} />
                 </button>
@@ -291,7 +294,7 @@ export function Talk({
               )}
             </div>
             {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}{" "}<span className="font-normal text-muted">(mã lỗi: {blocked ? lastListenErrorRaw() : "no-api"})</span></p>}
-            <p className="text-sm font-bold text-muted">{phase === "listening" ? "Đang nghe…" : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
+            <p className="text-sm font-bold text-muted">{phase === "listening" ? (micReady ? "Con nói đi!" : "Chờ chút, micro đang mở…") : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
           </div>
         ) : (
           <p className="text-center text-lg font-bold text-muted">{phase === "loading" ? "Đang chuẩn bị…" : "Nghe bạn nói nhé…"}</p>
