@@ -8,7 +8,8 @@ Cách chạy (một lần cài, sau đó chỉ cần chạy lại khi thêm Unit
   pnpm exec tsx scripts/list-speech.ts > .data/speech.json
   python3 scripts/generate-audio.py .data/speech.json
 
-Chỉ tạo file còn thiếu; cần ffmpeg để nén MP3.
+Chỉ tạo file còn thiếu. Nên cài ffmpeg (brew install ffmpeg): mọi file đều nén bằng ffmpeg
+để chất lượng đồng nhất; lameenc chỉ là phương án dự phòng.
 """
 import json, os, shutil, subprocess, sys, tempfile
 
@@ -18,11 +19,25 @@ SOUND_SPEED = 0.65  # âm đứng riêng rất ngắn: đọc chậm cho rõ
 GAP_SOUND = 0.6  # giây nghỉ giữa hai lần đọc âm
 
 
+_REF_PEAK: dict = {}
+
+
+def reference_peak(kokoro, voice: str) -> float:
+    """Đỉnh âm lượng của một câu mẫu, dùng làm chuẩn để mọi file cùng giọng to đều nhau."""
+    if voice not in _REF_PEAK:
+        import numpy as np
+        ref, _ = kokoro.create("Good job! Let's learn English.", voice=voice, speed=SPEED, lang="en-us")
+        _REF_PEAK[voice] = float(np.abs(ref).max())
+    return _REF_PEAK[voice]
+
+
 def sound_clip(kokoro, voice: str, it: dict):
     """Âm – nghỉ – âm (vd. /ɪə/ … /ɪə/). Từ mẫu có nút nghe riêng trong app."""
     import numpy as np
     # Dấu nhấn ˈ để Kokoro đọc âm đầy đủ, không nuốt như âm không nhấn
     snd, rate = kokoro.create("ˈ" + it["phonemes"], voice=voice, speed=SOUND_SPEED, is_phonemes=True)
+    # Âm đứng riêng ra nhỏ hơn câu thường 2–4 dB: chỉnh đỉnh âm lượng bằng câu mẫu cùng giọng
+    snd = snd * (reference_peak(kokoro, voice) / max(float(np.abs(snd).max()), 1e-6))
     gap = np.zeros(int(rate * GAP_SOUND), dtype=snd.dtype)
     return np.concatenate([snd, gap, snd]), rate
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
