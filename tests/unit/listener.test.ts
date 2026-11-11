@@ -58,6 +58,18 @@ describe("listener", () => {
     await expect(p).resolves.toMatchObject({ transcript: "where you" });
   });
 
+  it("báo bé đang nói rồi tắt sóng khi im lặng", async () => {
+    const l = await setup();
+    const onVoice = vi.fn();
+    const p = l.listen({ expected: ["Where are you from?"], onVoice });
+    (FakeRec.last as unknown as { onspeechstart?: () => void }).onspeechstart?.();
+    expect(onVoice).toHaveBeenLastCalledWith(true);
+    vi.advanceTimersByTime(900);
+    expect(onVoice).toHaveBeenLastCalledWith(false);
+    FakeRec.last.onresult?.({ results: [[{ transcript: "where are you from", confidence: 0.9 }]] });
+    await expect(p).resolves.toMatchObject({ transcript: "where are you from" });
+  });
+
   it("không nghe thấy gì thì báo no-speech", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["hello"] });

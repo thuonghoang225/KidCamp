@@ -54,6 +54,7 @@ export function Talk({
   const [phase, setPhase] = useState<"loading" | "bot" | "kid" | "listening" | "feedback" | "done">("loading");
   /** Micro đã thật sự thu chưa (iPad mất ~0,3–1 giây sau khi bấm). */
   const [micReady, setMicReady] = useState(false);
+  const [micVoice, setMicVoice] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
   const [tries, setTries] = useState(0);
   const canListen = useSyncExternalStore(noopSubscribe, () => listener.isSupported(), () => true);
@@ -181,9 +182,10 @@ export function Talk({
 
   async function listen() {
     setMicReady(false);
+    setMicVoice(false);
     setPhase("listening");
     try {
-      const { transcript } = await listener.listen({ expected: step?.hints.slice(0, 1), onReady: () => setMicReady(true) });
+      const { transcript } = await listener.listen({ expected: step?.hints.slice(0, 1), onReady: () => setMicReady(true), onVoice: setMicVoice });
       await submit(transcript, false);
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
@@ -274,7 +276,7 @@ export function Talk({
                 <Icon icon={faLightbulb} /> Gợi ý
               </Button>
               {supported ? (
-                <MicButton size="md" state={phase === "listening" ? (micReady ? "listening" : "opening") : "idle"} onClick={listen} />
+                <MicButton size="md" state={phase === "listening" ? (micReady ? (micVoice ? "hearing" : "listening") : "opening") : "idle"} onClick={listen} />
               ) : (
                 <>
                   {blockCode !== "not-supported" && (

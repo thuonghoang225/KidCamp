@@ -11,7 +11,13 @@ export interface Listener {
    * expected: các câu được chấp nhận (để chọn phương án nhận diện gần nhất và dừng sớm khi đã đúng).
    * onReady: gọi khi micro thật sự bắt đầu thu (iPad mất ~0,3–1 giây sau khi bấm).
    */
-  listen(opts?: { expected?: string[]; timeoutMs?: number; onReady?: () => void }): Promise<{ transcript: string; confidence: number }>;
+  listen(opts?: {
+    expected?: string[];
+    timeoutMs?: number;
+    onReady?: () => void;
+    /** true khi máy nghe thấy bé đang nói, false khi bé ngừng (để hiện sóng âm). */
+    onVoice?: (speaking: boolean) => void;
+  }): Promise<{ transcript: string; confidence: number }>;
   abort(): void;
 }
 
@@ -24,6 +30,9 @@ type SpeechRecognitionLike = {
   onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string; confidence: number }> & { isFinal?: boolean }> }) => void) | null;
   onaudiostart: (() => void) | null;
   onstart: (() => void) | null;
+  onsoundstart: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
   start(): void;
@@ -152,9 +161,23 @@ export function createListener(lang = "en-US"): Listener {
         };
         rec.onaudiostart = markReady;
 
+        // Sóng âm: bật khi nghe thấy tiếng, tắt sau 0,8 giây không có chữ mới
+        let voiceOff: ReturnType<typeof setTimeout> | undefined;
+        const voice = (on: boolean) => {
+          clearTimeout(voiceOff);
+          if (on) {
+            opts?.onVoice?.(true);
+            voiceOff = setTimeout(() => opts?.onVoice?.(false), 800);
+          } else opts?.onVoice?.(false);
+        };
+        rec.onsoundstart = () => { markReady(); voice(true); };
+        rec.onspeechstart = () => { markReady(); voice(true); };
+        rec.onspeechend = () => voice(false);
+
         rec.onresult = (e) => {
           if (done) return;
           markReady();
+          voice(true);
           // Ghép các đoạn đã nhận: đoạn cuối thử mọi phương án, đoạn trước lấy phương án đầu
           const parts = Array.from(e.results);
           const head = parts.slice(0, -1).map((r) => r[0]?.transcript ?? "").join(" ");
