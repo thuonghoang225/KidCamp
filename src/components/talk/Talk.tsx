@@ -11,6 +11,7 @@ import { sfx } from "@/core/sfx";
 import { speaker } from "@/subjects/english/speech/speaker";
 import { FRIEND_VOICES, isVoicePreference } from "@/subjects/english/speech/audio-key";
 import { SpeedToggle } from "@/components/exercises/SpeedToggle";
+import { MicButton } from "@/components/exercises/MicButton";
 import { listener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { KidCharacter } from "@/components/kid/KidCharacter";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
@@ -273,15 +274,7 @@ export function Talk({
                 <Icon icon={faLightbulb} /> Gợi ý
               </Button>
               {supported ? (
-                <button
-                  type="button"
-                  onClick={listen}
-                  disabled={phase === "listening"}
-                  aria-label="Bấm để nói"
-                  className={clsx("btn-candy flex h-24 w-24 items-center justify-center rounded-full text-4xl text-white", phase === "listening" ? (micReady ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-sun-400 !text-ink") : "bg-forest-500")}
-                >
-                  <Icon icon={faMicrophone} />
-                </button>
+                <MicButton size="md" state={phase === "listening" ? (micReady ? "listening" : "opening") : "idle"} onClick={listen} />
               ) : (
                 <>
                   {blockCode !== "not-supported" && (
@@ -294,7 +287,7 @@ export function Talk({
               )}
             </div>
             {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}{" "}<span className="font-normal text-muted">(mã lỗi: {blocked ? lastListenErrorRaw() : "no-api"})</span></p>}
-            <p className="text-sm font-bold text-muted">{phase === "listening" ? (micReady ? "Con nói đi!" : "Chờ chút, micro đang mở…") : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
+            <p className="text-sm font-bold text-muted">{phase === "listening" ? (micReady ? "Đang nghe…" : "") : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
           </div>
         ) : (
           <p className="text-center text-lg font-bold text-muted">{phase === "loading" ? "Đang chuẩn bị…" : "Nghe bạn nói nhé…"}</p>

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faMicrophone } from "@/components/icons";
 import { PromptCard } from "./SpeakButton";
+import { MicButton } from "./MicButton";
 
 export const MAX_SPEECH_TRIES = 3;
 
@@ -99,21 +100,10 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          disabled={locked || listening || supported === null}
-          onClick={listen}
-          aria-label="Bấm để nói"
-          className={clsx(
-            "btn-candy flex h-28 w-28 items-center justify-center rounded-full text-5xl text-white",
-            listening ? (ready ? "bg-ember-500 animate-pulse ring-8 ring-ember-100" : "bg-sun-400 !text-ink") : "bg-forest-500",
-          )}
-        >
-          <Icon icon={faMicrophone} />
-        </button>
+        <MicButton state={listening ? (ready ? "listening" : "opening") : "idle"} disabled={locked || supported === null} onClick={listen} />
       )}
       <p className="min-h-6 text-center text-lg font-bold text-muted">
-        {listening ? (ready ? "Con nói đi!" : "Chờ chút, micro đang mở…") : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
+        {listening ? (ready ? "Đang nghe…" : "") : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
       </p>
       {supported && (misses >= 2 || tries >= 1) && !locked && !listening && (
         // Micro không nghe được (phòng ồn, máy lỗi): không để bé bị kẹt
