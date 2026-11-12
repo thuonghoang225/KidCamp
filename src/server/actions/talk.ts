@@ -9,6 +9,10 @@ import { createRng, seedFrom, shuffle } from "@/core/random";
 import { scoreSpeech, type SpeechScore } from "@/core/grading/speech";
 import { fillSlots } from "@content/schema";
 import { randomUUID } from "node:crypto";
+import { isDue } from "@/core/srs/leitner";
+import { today } from "@/server/today";
+import type { Pattern } from "@content/schema";
+import { studiedPatterns } from "@/core/session/talk-pool";
 
 export type QuickQuestion = {
   patternId: string;
@@ -17,16 +21,19 @@ export type QuickQuestion = {
   /** Slot bé phải nói đúng giá trị (vd. country = "Japan" khi có hình cờ); slot khác chấp nhận mọi giá trị. */
   fixed: Record<string, string>;
   model: string;
+  /** Mọi câu trả lời hợp lệ: để máy dừng nghe ngay khi bé nói đúng (không chỉ câu mẫu). */
+  accept: string[];
 };
 
-export type TalkTurn = { say: string; expectPattern?: string; hints: string[] };
+export type TalkTurn = { say: string; expectPattern?: string; hints: string[]; accept: string[] };
 
 export type BeginTalkResult =
-  | { conversationId: string; sessionId: string; courseId: string; mode: "quick"; questions: QuickQuestion[] }
+  | { conversationId: string; sessionId: string; courseId: string; mode: "quick" | "speed"; questions: QuickQuestion[]; units: string[] }
   | { conversationId: string; sessionId: string; courseId: string; mode: "roleplay"; title: string; titleVi: string; friend: { name: string; country: string }; turns: TalkTurn[]; round: number };
 
 const Begin = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("quick"), courseId: z.string() }),
+  z.object({ mode: z.literal("speed"), courseId: z.string() }),
   z.object({ mode: z.literal("roleplay"), dialogueId: z.string(), round: z.number().int().min(1).max(3) }),
 ]);
 
@@ -39,30 +46,50 @@ export async function beginTalk(input: z.infer<typeof Begin>): Promise<BeginTalk
     if (!d) throw new Error("Không có kịch bản này");
     const conversationId = await repo.startConversation(child.id, d.courseId, "roleplay", d.id, args.round);
     const sessionId = await repo.startSession(child.id, d.courseId, "talk");
-    return { conversationId, sessionId, courseId: d.courseId, mode: "roleplay", title: d.title, titleVi: d.titleVi, friend: d.friend, turns: d.turns, round: args.round };
+    const turns = d.turns.map((t) => {
+      const p = t.expectPattern ? findPattern(t.expectPattern)?.pattern : undefined;
+      return { ...t, accept: p ? acceptedAnswers(p, {}) : [] };
+    });
+    return { conversationId, sessionId, courseId: d.courseId, mode: "roleplay", title: d.title, titleVi: d.titleVi, friend: d.friend, turns, round: args.round };
   }
 
   const course = getCourse(args.courseId);
   if (!course) throw new Error("Không có khóa học này");
+  const { parent } = await requireChild();
+  const [progress, stations] = await Promise.all([repo.getProgress(child.id, "english"), repo.getStations(child.id, course.id)]);
+  const pool = studiedPatterns(course.units, new Set(stations.map((s) => s.unitId)), new Set(progress.map((p) => p.itemId)));
   const rng = createRng(seedFrom(randomUUID()));
-  const patterns = course.units.filter((u) => u.status === "ready").flatMap((u) => u.patterns);
-  const questions: QuickQuestion[] = [];
-  for (const p of shuffle([...patterns, ...patterns], rng).slice(0, 8)) {
+  const day = today(parent.timezone);
+  const state = new Map(progress.map((p) => [p.itemId, p]));
+  // Ưu tiên câu đến hạn ôn và câu hay sai (hộp thấp), sau đó trộn ngẫu nhiên các câu đã học
+  const due = shuffle(pool.patterns.filter((p) => { const st = state.get(p.id); return !!st && isDue(st, day); }), rng)
+    .sort((x, y) => (state.get(x.id)?.box ?? 0) - (state.get(y.id)?.box ?? 0));
+  const rest = shuffle(pool.patterns.filter((p) => !due.includes(p)), rng);
+  const count = args.mode === "speed" ? 10 : 8;
+  const order: Pattern[] = [];
+  // Mỗi mẫu câu tối đa 2 lần, không hỏi cùng mẫu liền nhau
+  for (const p of [...due, ...rest, ...shuffle([...due, ...rest], rng), ...shuffle([...due, ...rest], rng)]) {
+    if (order.length >= count) break;
+    if (order.at(-1)?.id === p.id || order.filter((x) => x.id === p.id).length >= 2) continue;
+    order.push(p);
+  }
+  const questions: QuickQuestion[] = order.map((p) => {
     const askAboutChild = /\byou\b/i.test(p.question);
     const { values, image, imageSlot } = chooseSlots(p, rng);
     const fixed = determinedValues(p, values, askAboutChild ? undefined : imageSlot);
-    questions.push({
+    return {
       patternId: p.id,
       question: questionOf(p, values),
       // Hỏi về chính bé: không hiện hình, bé tự trả lời theo ý mình
       image: askAboutChild ? undefined : image,
       fixed,
       model: fillSlots(p.answer, values),
-    });
-  }
+      accept: acceptedAnswers(p, fixed),
+    };
+  });
   const conversationId = await repo.startConversation(child.id, course.id, "quick", null, 1);
   const sessionId = await repo.startSession(child.id, course.id, "talk");
-  return { conversationId, sessionId, courseId: course.id, mode: "quick", questions };
+  return { conversationId, sessionId, courseId: course.id, mode: args.mode, questions, units: pool.labels };
 }
 
 const Turn = z.object({

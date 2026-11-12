@@ -17,35 +17,39 @@ import { KidCharacter } from "@/components/kid/KidCharacter";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { faArrowRight, faCheck, faLightbulb, faMicrophone, faXmark, faClock, faComments } from "@/components/icons";
+import { faArrowRight, faBolt, faCheck, faLightbulb, faMicrophone, faXmark, faClock, faComments } from "@/components/icons";
 
-type Begin = { mode: "quick"; courseId: string } | { mode: "roleplay"; dialogueId: string; round: number };
+type Begin = { mode: "quick" | "speed"; courseId: string } | { mode: "roleplay"; dialogueId: string; round: number };
 
 /** Một bước của cuộc nói chuyện: nhân vật nói, có thể chờ bé trả lời. */
-type Step = { say: string; expectPattern: string | null; fixed: Record<string, string>; hints: string[]; image?: string };
+type Step = { say: string; expectPattern: string | null; fixed: Record<string, string>; hints: string[]; accept: string[]; image?: string };
 
 type Bubble = { who: "bot" | "kid"; text: string; score?: SpeechScore | null };
 
 const MAX_TRIES = 2;
+/** Thời gian gợi ý tự hiện nếu bé chưa bấm micro (giây). Không tính là sai. */
+const TIME_LIMIT = { quick: 7, speed: 5 } as const;
+/** Thử thách tốc độ: trả lời đúng ngay lần đầu trong chừng này giây thì được tia chớp. */
+const FAST_MS = 3000;
 const noopSubscribe = () => () => {};
 
 function toSteps(t: BeginTalkResult): Step[] {
-  if (t.mode === "quick") {
+  if (t.mode !== "roleplay") {
     return [
-      { say: "Hi! Let's talk. Answer quickly!", expectPattern: null, fixed: {}, hints: [] },
+      { say: t.mode === "speed" ? "Speed challenge! Ready? Go!" : "Hi! Let's talk. Answer quickly!", expectPattern: null, fixed: {}, hints: [], accept: [] },
       ...t.questions.map((q) => ({
-        say: q.question, expectPattern: q.patternId, fixed: q.fixed, image: q.image,
+        say: q.question, expectPattern: q.patternId, fixed: q.fixed, image: q.image, accept: q.accept,
         hints: [q.model, q.model.split(" ").slice(0, -1).join(" ") + " …", q.model.split(" ")[0] + " …"],
       })),
-      { say: "Great job! See you!", expectPattern: null, fixed: {}, hints: [] },
+      { say: "Great job! See you!", expectPattern: null, fixed: {}, hints: [], accept: [] },
     ];
   }
-  return t.turns.map((x) => ({ say: x.say, expectPattern: x.expectPattern ?? null, fixed: {}, hints: x.hints }));
+  return t.turns.map((x) => ({ say: x.say, expectPattern: x.expectPattern ?? null, fixed: {}, hints: x.hints, accept: x.accept }));
 }
 
 export function Talk({
-  begin, backHref, faceUrl, costumeId, childName, voice = "rotate",
-}: { begin: Begin; backHref: string; faceUrl: string | null; costumeId: string; childName: string; voice?: string }) {
+  begin, backHref, faceUrl, costumeId, childName, childId, voice = "rotate",
+}: { begin: Begin; backHref: string; faceUrl: string | null; costumeId: string; childName: string; childId: string; voice?: string }) {
   if (isVoicePreference(voice) && speaker.preference !== voice) speaker.setPreference(voice);
   const [talk, setTalk] = useState<BeginTalkResult | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -61,7 +65,12 @@ export function Talk({
   const [blocked, setBlocked] = useState<ListenErrorCode | null>(null);
   const supported = canListen && !blocked;
   const blockCode: ListenErrorCode = blocked ?? "not-supported";
-  const [stats, setStats] = useState({ spoken: 0, passed: 0, latencies: [] as number[] });
+  const [stats, setStats] = useState({ spoken: 0, passed: 0, fast: 0, latencies: [] as number[] });
+  /** Đếm ngược lượt của bé: thời điểm hết giờ (ms) và phần còn lại 0..1. */
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [left, setLeft] = useState(1);
+  const [record, setRecord] = useState<{ best: number; isNew: boolean } | null>(null);
+  const limit = begin.mode === "roleplay" ? null : TIME_LIMIT[begin.mode];
   const [error, setError] = useState<string | null>(null);
   const kidTurnAt = useRef(0);
   const startedAt = useRef(0);
@@ -69,7 +78,7 @@ export function Talk({
   // Giá trị mới nhất cho các callback bất đồng bộ (tránh closure cũ)
   // Bạn Lucy giữ một giọng nữ trong cả cuộc nói chuyện; lần sau đổi sang giọng khác
   const friendVoice = useRef(FRIEND_VOICES[0]);
-  const live = useRef({ talk: null as BeginTalkResult | null, steps: [] as Step[], i: 0, stats: { spoken: 0, passed: 0 }, alive: true });
+  const live = useRef({ talk: null as BeginTalkResult | null, steps: [] as Step[], i: 0, stats: { spoken: 0, passed: 0, fast: 0 }, alive: true });
   useEffect(() => {
     live.current.stats = stats;
   }, [stats]);
@@ -93,6 +102,7 @@ export function Talk({
         setHintLevel(round === 1 ? 1 : 0);
         setTries(0);
         kidTurnAt.current = Date.now();
+        startClock();
         setPhase("kid");
       } else {
         setTimeout(() => live.current.alive && runStep(index + 1), 600);
@@ -128,6 +138,27 @@ export function Talk({
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [bubbles, phase]);
 
+  /** Bắt đầu đếm ngược lượt của bé (Hỏi nhanh, Thử thách tốc độ). */
+  function startClock() {
+    if (!limit) return;
+    setLeft(1);
+    setDeadline(Date.now() + limit * 1000);
+  }
+
+  // Đếm ngược; hết giờ mà bé chưa nói thì hiện gợi ý (không tính là sai)
+  useEffect(() => {
+    if (deadline === null || phase !== "kid") return;
+    const id = setInterval(() => {
+      const f = (deadline - Date.now()) / ((limit ?? 1) * 1000);
+      if (f > 0) return setLeft(f);
+      setLeft(0);
+      setDeadline(null);
+      setHintLevel((h) => Math.max(h, 1));
+      void speaker.play("Time's up! Look at the hint.", { voice: friendVoice.current });
+    }, 100);
+    return () => clearInterval(id);
+  }, [deadline, phase, limit]);
+
   function advance() {
     runStep(live.current.i + 1);
   }
@@ -136,6 +167,18 @@ export function Talk({
     setPhase("done");
     const { talk: t, stats: st } = live.current;
     if (!t) return;
+    if (t.mode === "speed") {
+      // Kỷ lục số câu nhanh, nhớ theo từng bé trên máy này
+      const key = `kc_speed_best_${childId}`;
+      let best = 0;
+      try {
+        best = Number(localStorage.getItem(key)) || 0;
+        if (st.fast > best) localStorage.setItem(key, String(st.fast));
+      } catch {
+        /* trình duyệt chặn lưu trữ */
+      }
+      setRecord({ best: Math.max(best, st.fast), isNew: st.fast > best && st.fast > 0 });
+    }
     await finishTalk(t.conversationId).catch(() => undefined);
     await finishSession({
       sessionId: t.sessionId, courseId: t.courseId,
@@ -147,6 +190,7 @@ export function Talk({
   async function submit(transcript: string, selfReported: boolean) {
     if (!talk || !step) return;
     const latencyMs = Math.min(Date.now() - kidTurnAt.current, 120_000);
+    setDeadline(null);
     setPhase("feedback");
     const score = await recordTurn({
       conversationId: talk.conversationId, botText: step.say, patternId: step.expectPattern, fixed: step.fixed,
@@ -159,6 +203,7 @@ export function Talk({
     setStats((s) => ({
       spoken: s.spoken + 1,
       passed: s.passed + (passed && n === 1 ? 1 : 0),
+      fast: s.fast + (passed && n === 1 && latencyMs <= FAST_MS ? 1 : 0),
       latencies: n === 1 ? [...s.latencies, latencyMs] : s.latencies,
     }));
     if (passed) sfx.correct();
@@ -176,16 +221,18 @@ export function Talk({
       await speaker.play("Try again!", { voice: friendVoice.current });
       setHintLevel((h) => Math.max(h, 1));
       kidTurnAt.current = Date.now();
+      startClock();
       setPhase("kid");
     }
   }
 
   async function listen() {
+    setDeadline(null);
     setMicReady(false);
     setMicVoice(false);
     setPhase("listening");
     try {
-      const { transcript } = await listener.listen({ expected: step?.hints.slice(0, 1), onReady: () => setMicReady(true), onVoice: setMicVoice });
+      const { transcript } = await listener.listen({ expected: step?.accept.length ? step.accept : step?.hints.slice(0, 1), onReady: () => setMicReady(true), onVoice: setMicVoice });
       await submit(transcript, false);
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
@@ -208,7 +255,13 @@ export function Talk({
         <div className="flex flex-wrap justify-center gap-3 text-lg font-bold">
           <span className="rounded-full bg-forest-100 px-4 py-2 text-forest-700"><Icon icon={faComments} /> {stats.spoken} câu đã nói</span>
           {avg !== null && <span className="rounded-full bg-sky-100 px-4 py-2 text-sky-700"><Icon icon={faClock} /> phản xạ {avg.toFixed(1)} giây</span>}
+          {talk?.mode === "speed" && <span className="rounded-full bg-sun-100 px-4 py-2 text-sun-700"><Icon icon={faBolt} /> {stats.fast}/{steps.filter((x) => x.expectPattern).length} câu nhanh</span>}
         </div>
+        {record && (
+          <p className={clsx("text-xl font-black", record.isNew ? "text-ember-600" : "text-muted")}>
+            {record.isNew ? "Kỷ lục mới!" : `Kỷ lục của con: ${record.best} câu nhanh`}
+          </p>
+        )}
         <ButtonLink href={backHref} size="xl">Tiếp tục <Icon icon={faArrowRight} /></ButtonLink>
       </div>
     );
@@ -224,7 +277,8 @@ export function Talk({
       <header className="flex items-center gap-3">
         <ButtonLink href={backHref} tone="ghost" aria-label="Thoát"><Icon icon={faXmark} className="text-2xl" /></ButtonLink>
         <p className="font-black text-forest-700">
-          {talk?.mode === "roleplay" ? `${talk.titleVi} · Lượt ${talk.round}` : "Hỏi nhanh"}
+          {talk?.mode === "roleplay" ? `${talk.titleVi} · Lượt ${talk.round}` : talk?.mode === "speed" ? `Thử thách tốc độ · ${stats.fast}` : "Hỏi nhanh"}
+          {talk?.mode === "speed" && <Icon icon={faBolt} className="ml-1 text-sun-500" />}
         </p>
         <span className="ml-auto text-sm font-bold text-muted">{Math.min(i + 1, steps.length)}/{steps.length}</span>
         <SpeedToggle />
@@ -270,6 +324,14 @@ export function Talk({
       <div className="border-t-2 border-forest-100 py-4">
         {kidTurn ? (
           <div className="flex flex-col items-center gap-3">
+            {limit && phase === "kid" && deadline !== null && (
+              <div className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-forest-100" role="timer" aria-label="Thời gian trả lời">
+                <div
+                  className={clsx("h-full rounded-full transition-[width] duration-100 ease-linear", left > 0.5 ? "bg-forest-500" : left > 0.25 ? "bg-sun-400" : "bg-ember-500")}
+                  style={{ width: `${left * 100}%` }}
+                />
+              </div>
+            )}
             {hint && <p className="rounded-2xl bg-sun-100 px-4 py-2 text-xl font-extrabold text-ink">{hint}</p>}
             <div className="flex items-center gap-4">
               <Button tone="white" onClick={() => setHintLevel((h) => Math.min(h + 1, 3))} disabled={!step?.hints.length || hintLevel >= 3}>

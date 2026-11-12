@@ -20,7 +20,7 @@ export default async function RoleplayPage({
       backHref={`/${course}/talk`}
       faceUrl={faceUrl}
       costumeId={child.costumeId} voice={child.voice}
-      childName={child.nickname}
+      childName={child.nickname} childId={child.id}
     />
   );
 }

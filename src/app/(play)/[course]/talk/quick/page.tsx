@@ -11,5 +11,5 @@ export default async function QuickPage({ params }: { params: Promise<{ course: 
   if (!getCourse(course)) notFound();
   const { parent, child } = await requireChild();
   const { faceUrl } = await getKidSummary(parent, child);
-  return <Talk begin={{ mode: "quick", courseId: course }} backHref={`/${course}/talk`} faceUrl={faceUrl} costumeId={child.costumeId} voice={child.voice} childName={child.nickname} />;
+  return <Talk begin={{ mode: "quick", courseId: course }} backHref={`/${course}/talk`} faceUrl={faceUrl} costumeId={child.costumeId} voice={child.voice} childName={child.nickname} childId={child.id} />;
 }

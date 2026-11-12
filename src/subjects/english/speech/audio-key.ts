@@ -46,4 +46,6 @@ export const SYSTEM_PHRASES = [
   "Try again!",
   "Hi! Let's talk. Answer quickly!",
   "Great job! See you!",
+  "Speed challenge! Ready? Go!",
+  "Time's up! Look at the hint.",
 ];

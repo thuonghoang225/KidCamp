@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { dialogues, getCourse } from "@content/courses";
 import { Icon } from "@/components/ui/Icon";
-import { faArrowLeft, faBolt, faLock, faMasksTheater, faWandMagicSparkles } from "@/components/icons";
+import { faArrowLeft, faBolt, faLock, faMasksTheater, faStopwatch, faWandMagicSparkles } from "@/components/icons";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
 
 export const metadata = { title: "Luyện phản xạ" };
@@ -28,7 +28,15 @@ export default async function TalkHub({ params }: { params: Promise<{ course: st
         <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-3xl"><Icon icon={faBolt} /></span>
         <span>
           <span className="block text-2xl font-black">Hỏi nhanh</span>
-          <span className="block">8 câu hỏi trộn từ các Unit đã học · 3 phút</span>
+          <span className="block">8 câu từ các Unit con đã học, ưu tiên câu cần ôn · 3 phút</span>
+        </span>
+      </Link>
+
+      <Link href={`/${course.id}/talk/speed`} className="btn-candy flex items-center gap-4 rounded-3xl bg-sun-400 p-5 text-ink">
+        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/40 text-3xl"><Icon icon={faStopwatch} /></span>
+        <span>
+          <span className="block text-2xl font-black">Thử thách tốc độ</span>
+          <span className="block">10 câu, trả lời đúng dưới 3 giây được tia chớp · phá kỷ lục của con</span>
         </span>
       </Link>
 
