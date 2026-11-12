@@ -13,7 +13,20 @@ export type SpeechRate = "normal" | "slow";
 
 export interface Speaker {
   /** `fallback`: câu đọc bằng giọng trình duyệt khi chưa có file (vd. âm /ɪə/ → đọc từ mẫu "here"). */
-  play(text: string, opts?: { rate?: number; voice?: Voice; fallback?: string }): Promise<void>;
+  play(
+    text: string,
+    opts?: {
+      rate?: number;
+      voice?: Voice;
+      fallback?: string;
+      /** Bỏ qua chế độ "Chậm" (chant cần đúng nhịp). */
+      ignoreSlow?: boolean;
+      /** Tiến độ phát 0..1, gọi liên tục khi phát file (để tô chữ kiểu karaoke). */
+      onProgress?: (fraction: number) => void;
+    },
+  ): Promise<void>;
+  /** Độ dài file âm thanh của câu (giây); null nếu chưa có file. */
+  duration(text: string, voice?: Voice): Promise<number | null>;
   stop(): void;
   /** Chuyển sang giọng kế tiếp (chỉ khi đang luân phiên). */
   nextVoice(): Voice;
@@ -159,7 +172,7 @@ export function createSpeaker(lang = "en-US"): Speaker {
       if (typeof window === "undefined") return;
       stop();
       const voice = opts?.voice ?? current();
-      const slow = getRate() === "slow";
+      const slow = getRate() === "slow" && !opts?.ignoreSlow;
       const m = await loadManifest();
       const key = audioKey(text);
       // Giọng đã chọn chưa có file (VD: chưa tạo giọng Azure): dùng giọng Kokoro mặc định
@@ -171,9 +184,15 @@ export function createSpeaker(lang = "en-US"): Speaker {
         audio ??= new Audio();
         const el = audio;
         el.preservesPitch = true;
+        let raf = 0;
+        const tick = () => {
+          if (el.duration > 0) opts?.onProgress?.(Math.min(el.currentTime / el.duration, 1));
+          raf = requestAnimationFrame(tick);
+        };
         const ok = await new Promise<boolean>((resolve) => {
           finish = () => resolve(true);
           el.onended = () => resolve(true);
+          if (opts?.onProgress) el.onplaying = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); };
           el.onerror = () => resolve(false);
           el.src = `/audio/${usable}/${key}.mp3`;
           // playbackRate phải đặt sau khi đổi src (Safari đặt lại khi nạp file mới)
@@ -181,10 +200,30 @@ export function createSpeaker(lang = "en-US"): Speaker {
           el.play().catch(() => resolve(false));
         });
         finish = null;
-        if (ok) return;
+        cancelAnimationFrame(raf);
+        el.onplaying = null;
+        if (ok) {
+          opts?.onProgress?.(1);
+          return;
+        }
       }
       // Chưa có file (hoặc trình duyệt chặn phát): dùng giọng trình duyệt
       await speakWithBrowser(opts?.fallback ?? text, lang, (opts?.rate ?? 0.95) * (slow ? SLOW_FACTOR : 1));
+    },
+    async duration(text, voice) {
+      if (typeof window === "undefined") return null;
+      const m = await loadManifest();
+      const key = audioKey(text);
+      if (!m?.keys.has(key)) return null;
+      const v = voice ?? current();
+      const use = m.voices.includes(v) ? v : (m.voices.find((x) => VOICES.includes(x)) ?? VOICES[0]);
+      return new Promise((resolve) => {
+        const a = new Audio();
+        a.preload = "metadata";
+        a.onloadedmetadata = () => resolve(Number.isFinite(a.duration) ? a.duration : null);
+        a.onerror = () => resolve(null);
+        a.src = `/audio/${use}/${key}.mp3`;
+      });
     },
     stop,
   };
