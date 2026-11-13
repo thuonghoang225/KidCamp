@@ -60,6 +60,23 @@ describe("listener", () => {
     await expect(p).resolves.toMatchObject({ transcript: "I'm from Japan" });
   });
 
+  it("iPad tự ngắt giữa câu thì nghe tiếp và ghép phần đã nói", async () => {
+    const l = await setup();
+    const p = l.listen({ expected: ["I get up at six o'clock."] });
+    FakeRec.last.onresult?.({ results: [[{ transcript: "I get up at", confidence: 0.8 }]] });
+    FakeRec.last.onend?.(); // Safari ngắt khi bé ngừng
+    FakeRec.last.onresult?.({ results: [[{ transcript: "six o'clock", confidence: 0.9 }]] });
+    await expect(p).resolves.toMatchObject({ transcript: "I get up at six o'clock" });
+  });
+
+  it("bé bấm nút khi nói xong thì chấm ngay", async () => {
+    const l = await setup();
+    const p = l.listen({ expected: ["Where are you from?"] });
+    FakeRec.last.onresult?.({ results: [[{ transcript: "where are you", confidence: 0.8 }]] });
+    l.finish();
+    await expect(p).resolves.toMatchObject({ transcript: "where are you" });
+  });
+
   it("chọn phương án nhận diện gần câu mẫu nhất", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["flat"] });
@@ -67,11 +84,11 @@ describe("listener", () => {
     await expect(p).resolves.toMatchObject({ transcript: "flat" });
   });
 
-  it("chưa đúng thì chờ 2 giây im lặng rồi trả câu đã nghe", async () => {
+  it("chưa đúng thì chờ 3 giây im lặng rồi trả câu đã nghe", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["Where are you from?"] });
     FakeRec.last.onresult?.({ results: [[{ transcript: "where you", confidence: 0.5 }]] });
-    vi.advanceTimersByTime(2100);
+    vi.advanceTimersByTime(3100);
     await expect(p).resolves.toMatchObject({ transcript: "where you" });
   });
 
@@ -90,7 +107,8 @@ describe("listener", () => {
   it("không nghe thấy gì thì báo no-speech", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["hello"] });
-    FakeRec.last.onend?.();
+    // iPad tự ngắt: app mở nghe lại tối đa 4 lần rồi mới báo không nghe thấy
+    for (let k = 0; k < 5; k++) FakeRec.last.onend?.();
     await expect(p).rejects.toMatchObject({ code: "no-speech" });
   });
 });

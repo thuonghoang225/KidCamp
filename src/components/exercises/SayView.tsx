@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clsx } from "clsx";
 import type { Response, SaySentence, SayWord } from "@/core/exercises/types";
 import { scoreSpeech, type SpeechScore } from "@/core/grading/speech";
-import { listener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
+import { listener, prepareListener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { faCheck, faMicrophone } from "@/components/icons";
@@ -33,13 +33,14 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
   const [misses, setMisses] = useState(0);
   const best = useRef<{ transcript: string; score: number }>({ transcript: "", score: -1 });
   const target = ex.kind === "say-word" ? ex.text : ex.model;
+  useEffect(() => prepareListener(), []);
 
   async function listen() {
     setMessage(null);
     setReady(false);
     setListening(true);
     try {
-      const { transcript } = await listener.listen({ expected: ex.accept, onReady: () => setReady(true), onVoice: setVoice });
+      const { transcript } = await listener.listen({ expected: ex.accept, onReady: () => setReady(true), onThinking: () => setReady(false), onVoice: setVoice });
       const s = scoreSpeech(transcript, ex.accept);
       setResult(s);
       if (s.score > best.current.score) best.current = { transcript, score: s.score };
@@ -103,10 +104,10 @@ export function SayView({ ex, onAnswer, locked }: { ex: SayWord | SaySentence; o
           </div>
         </div>
       ) : (
-        <MicButton state={listening ? (ready ? (voice ? "hearing" : "listening") : "opening") : "idle"} disabled={locked || supported === null} onClick={listen} />
+        <MicButton state={listening ? (ready ? (voice ? "hearing" : "listening") : "opening") : "idle"} disabled={locked || supported === null} onClick={listen} onStop={() => listener.finish()} />
       )}
       <p className="min-h-6 text-center text-lg font-bold text-muted">
-        {listening ? (ready ? "Đang nghe…" : "") : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
+        {listening ? (ready ? "Đang nghe… Nói xong bấm micro" : "") : message ?? (tries > 0 ? `Lần ${tries}/${MAX_SPEECH_TRIES}` : "")}
       </p>
       {supported && (misses >= 2 || tries >= 1) && !locked && !listening && (
         // Micro không nghe được (phòng ồn, máy lỗi): không để bé bị kẹt

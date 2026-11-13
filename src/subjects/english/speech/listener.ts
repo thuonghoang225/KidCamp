@@ -2,6 +2,7 @@
 
 import { sfx } from "@/core/sfx";
 import { scoreSpeech, SPEECH_PASS } from "@/core/grading/speech";
+import { cloudAbort, cloudFinish, cloudListen, cloudSttAvailable, CloudListenError } from "./cloud-listener";
 import { speaker } from "./speaker";
 
 /** Nghe bé nói và trả về chữ, dùng Web Speech API của trình duyệt. */
@@ -17,8 +18,12 @@ export interface Listener {
     onReady?: () => void;
     /** true khi máy nghe thấy bé đang nói, false khi bé ngừng (để hiện sóng âm). */
     onVoice?: (speaking: boolean) => void;
+    /** Bé đã nói xong, máy đang nhận diện (chỉ có khi nhận diện trên máy chủ). */
+    onThinking?: () => void;
   }): Promise<{ transcript: string; confidence: number }>;
   abort(): void;
+  /** Bé đã nói xong: dừng nghe và chấm với những gì đã nghe được. */
+  finish(): void;
 }
 
 type RecognitionCtor = new () => SpeechRecognitionLike;
@@ -109,43 +114,70 @@ export function listenHelp(code: ListenErrorCode): string {
   }
 }
 
+/**
+ * Nhận diện trên máy chủ (Whisper) nếu đã bật: biết sớm để lúc bé bấm micro không phải chờ
+ * (iPad chỉ cho mở âm thanh ngay trong cú bấm).
+ */
+let useCloud: boolean | null = null;
+export function prepareListener(): void {
+  if (useCloud !== null) return;
+  void cloudSttAvailable().then((v) => (useCloud = v));
+}
+
 export function createListener(lang = "en-US"): Listener {
   let current: SpeechRecognitionLike | null = null;
+  let cloudActive = false;
+  /** Kết thúc phiên nghe đang chạy và chấm ngay (bé bấm nút khi nói xong). */
+  let endNow: (() => void) | null = null;
   return {
-    isSupported: () => ctor() !== null,
+    isSupported: () => ctor() !== null || useCloud === true,
     listen(opts) {
+      if (useCloud) {
+        speaker.stop();
+        sfx.release();
+        cloudActive = true;
+        return cloudListen(opts)
+          .catch((err) => {
+            const code = err instanceof CloudListenError ? err.code : "other";
+            throw new ListenError(code === "network" ? "network" : code, err instanceof CloudListenError ? err.raw ?? code : String(err));
+          })
+          .finally(() => (cloudActive = false));
+      }
       const C = ctor();
       if (!C) return Promise.reject(new ListenError("not-supported"));
       return new Promise((resolve, reject) => {
-        const rec = new C();
-        current = rec;
-        rec.lang = lang;
-        // Nghe liên tục và nhận kết quả tạm: chấm ngay khi bé nói xong câu,
-        // không bị cắt khi bé ngập ngừng giữa câu.
-        rec.interimResults = true;
-        rec.continuous = true;
-        rec.maxAlternatives = 5;
         const expected = opts?.expected ?? [];
+        const limit = opts?.timeoutMs ?? 15000;
+        const startedAt = Date.now();
         let done = false;
         let best = { transcript: "", confidence: 0, score: -1 };
+        /** Phần bé đã nói ở các phiên nghe trước (Safari tự ngắt khi bé ngừng giữa câu). */
+        let committed = "";
+        let restarts = 0;
+        let rec: SpeechRecognitionLike | null = null;
         let silence: ReturnType<typeof setTimeout> | undefined;
-        const limit = opts?.timeoutMs ?? 10000;
 
-        const finish = (ok: boolean) => {
-          if (done) return;
-          done = true;
+        const clearAll = () => {
           clearTimeout(timer);
           clearTimeout(hardStop);
           clearTimeout(silence);
-          try { rec.stop(); } catch {}
+        };
+        const finish = (ok: boolean) => {
+          if (done) return;
+          done = true;
+          clearAll();
+          endNow = null;
+          try { rec?.stop(); } catch {}
           if (ok && best.transcript) resolve({ transcript: best.transcript, confidence: best.confidence });
           else reject(new ListenError("no-speech"));
         };
+        // Bé bấm lại nút micro khi đã nói xong
+        endNow = () => finish(true);
         const timer = setTimeout(() => finish(true), limit);
         // Một số trình duyệt không gọi onend sau stop(): tự kết thúc để bé không bị kẹt
         const hardStop = setTimeout(() => {
           if (done) return;
-          try { rec.abort(); } catch {}
+          try { rec?.abort(); } catch {}
           finish(true);
         }, limit + 2000);
 
@@ -155,11 +187,6 @@ export function createListener(lang = "en-US"): Listener {
           ready = true;
           opts?.onReady?.();
         };
-        rec.onstart = () => {
-          // Safari không phải lúc nào cũng có onaudiostart: dự phòng sau 300 ms
-          setTimeout(markReady, 300);
-        };
-        rec.onaudiostart = markReady;
 
         // Sóng âm: bật khi nghe thấy tiếng, tắt sau 0,8 giây không có chữ mới
         let voiceOff: ReturnType<typeof setTimeout> | undefined;
@@ -170,68 +197,106 @@ export function createListener(lang = "en-US"): Listener {
             voiceOff = setTimeout(() => opts?.onVoice?.(false), 800);
           } else opts?.onVoice?.(false);
         };
-        rec.onsoundstart = () => { markReady(); voice(true); };
-        rec.onspeechstart = () => { markReady(); voice(true); };
-        rec.onspeechend = () => voice(false);
 
-        rec.onresult = (e) => {
-          if (done) return;
-          markReady();
-          voice(true);
-          // Ghép các đoạn đã nhận: đoạn cuối thử mọi phương án, đoạn trước lấy phương án đầu
-          const parts = Array.from(e.results);
-          const head = parts.slice(0, -1).map((r) => r[0]?.transcript ?? "").join(" ");
-          const last = Array.from(parts.at(-1) ?? []);
-          for (const alt of last) {
-            // Safari đôi khi trả cả câu dồn lại trong đoạn cuối: khi đó không ghép thêm đoạn trước
-            const said = alt.transcript.trim();
-            const transcript = head && said.toLowerCase().startsWith(head.trim().toLowerCase()) ? said : `${head} ${said}`.trim();
-            const score = expected.length ? scoreSpeech(transcript, expected).score : 1;
-            if (score > best.score) best = { transcript, confidence: alt.confidence ?? 0, score };
-          }
-          // Chỉ dừng sớm khi đã nghe ĐỦ mọi từ của một câu đúng. Đủ 80% thôi thì chưa dừng:
-          // từ cuối câu (thường là từ quan trọng như "Japan", "flat") sẽ bị cắt mất.
-          if (expected.length && best.score >= 1) return finish(true);
-          // Chưa đủ: đợi bé nói tiếp, im lặng 2 giây thì chấm với câu đã nghe được
+        /** Chưa nói đủ câu: chờ lâu hơn để bé nói chậm vẫn kịp nói hết. */
+        const waitMore = () => {
           clearTimeout(silence);
-          silence = setTimeout(() => finish(true), best.score >= SPEECH_PASS ? 1200 : 2000);
+          const ms = best.score >= SPEECH_PASS ? 1500 : 3000;
+          silence = setTimeout(() => finish(true), ms);
         };
-        rec.onerror = (e) => {
-          if (done) return;
-          if (e.error === "no-speech" || e.error === "aborted") return finish(true);
-          done = true;
-          clearTimeout(timer);
-          clearTimeout(hardStop);
-          clearTimeout(silence);
-          const map: Record<string, ListenErrorCode> = {
-            "no-speech": "no-speech", "not-allowed": "not-allowed", "service-not-allowed": "service-off",
-            "audio-capture": "no-mic", "language-not-supported": "language", network: "network", aborted: "aborted",
+
+        const start = () => {
+          const r = new C();
+          rec = r;
+          current = r;
+          r.lang = lang;
+          r.interimResults = true;
+          r.continuous = true;
+          r.maxAlternatives = 5;
+          r.onstart = () => setTimeout(markReady, 300); // Safari không phải lúc nào cũng có onaudiostart
+          r.onaudiostart = markReady;
+          r.onsoundstart = () => { markReady(); voice(true); };
+          r.onspeechstart = () => { markReady(); voice(true); };
+          r.onspeechend = () => voice(false);
+
+          r.onresult = (e) => {
+            if (done || rec !== r) return;
+            markReady();
+            voice(true);
+            // Ghép các đoạn: đoạn cuối thử mọi phương án, đoạn trước lấy phương án đầu
+            const parts = Array.from(e.results);
+            const head = parts.slice(0, -1).map((x) => x[0]?.transcript ?? "").join(" ").trim();
+            for (const alt of Array.from(parts.at(-1) ?? [])) {
+              const said = alt.transcript.trim();
+              // Safari đôi khi trả cả câu dồn lại trong đoạn cuối: khi đó không ghép đoạn trước
+              const session = head && said.toLowerCase().startsWith(head.toLowerCase()) ? said : `${head} ${said}`.trim();
+              const transcript = `${committed} ${session}`.trim();
+              const score = expected.length ? scoreSpeech(transcript, expected).score : 1;
+              if (score > best.score || (score === best.score && transcript.length > best.transcript.length)) {
+                best = { transcript, confidence: alt.confidence ?? 0, score };
+              }
+            }
+            // Chỉ dừng sớm khi đã nghe ĐỦ mọi từ của một câu đúng
+            if (expected.length && best.score >= 1) return finish(true);
+            waitMore();
           };
-          console.warn("[KidCamp] speech recognition error:", e.error);
-          reject(new ListenError(map[e.error] ?? "other", e.error));
+          r.onerror = (e) => {
+            if (done || rec !== r) return;
+            if (e.error === "no-speech" || e.error === "aborted") return; // onend sẽ xử lý
+            done = true;
+            clearAll();
+            endNow = null;
+            const map: Record<string, ListenErrorCode> = {
+              "no-speech": "no-speech", "not-allowed": "not-allowed", "service-not-allowed": "service-off",
+              "audio-capture": "no-mic", "language-not-supported": "language", network: "network", aborted: "aborted",
+            };
+            console.warn("[KidCamp] speech recognition error:", e.error);
+            reject(new ListenError(map[e.error] ?? "other", e.error));
+          };
+          r.onend = () => {
+            if (done || rec !== r) return;
+            current = null;
+            // iPad tự ngắt phiên nghe khi bé ngừng một chút giữa câu. Câu chưa đủ thì mở nghe tiếp,
+            // giữ phần đã nói, để từ cuối không bị cắt mất.
+            const incomplete = !expected.length || best.score < 1;
+            if (incomplete && restarts < 4 && Date.now() - startedAt < limit - 1000) {
+              restarts++;
+              committed = best.transcript;
+              try {
+                start();
+                return;
+              } catch {
+                /* không mở lại được: chấm với phần đã nghe */
+              }
+            }
+            finish(true);
+          };
+          r.start();
         };
-        rec.onend = () => {
-          current = null;
-          finish(true);
-        };
+
         // iPad/Safari: đang phát âm thanh (file mp3, giọng trình duyệt, hiệu ứng) thì nhận giọng nói
         // dễ bị từ chối với lỗi service-not-allowed. Dừng hết trước khi mở micro (vẫn trong cú bấm của bé).
         speaker.stop();
         sfx.release();
         try {
-          rec.start();
+          start();
         } catch (err) {
           // Safari ném lỗi ngay khi bị chặn (vd. chế độ app màn hình chính)
           done = true;
-          clearTimeout(timer);
-          clearTimeout(hardStop);
+          clearAll();
+          endNow = null;
           console.warn("[KidCamp] speech recognition start failed:", err);
           const name = err instanceof Error ? err.name : "";
           reject(new ListenError(name === "NotAllowedError" ? "not-allowed" : "service-off", String(err)));
         }
       });
     },
+    finish() {
+      if (cloudActive) cloudFinish();
+      else endNow?.();
+    },
     abort() {
+      if (cloudActive) cloudAbort();
       current?.abort();
     },
   };

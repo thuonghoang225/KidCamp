@@ -12,7 +12,7 @@ import { speaker } from "@/subjects/english/speech/speaker";
 import { FRIEND_VOICES, isVoicePreference } from "@/subjects/english/speech/audio-key";
 import { SpeedToggle } from "@/components/exercises/SpeedToggle";
 import { MicButton } from "@/components/exercises/MicButton";
-import { listener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
+import { listener, prepareListener, ListenError, isBlockingError, listenHelp, lastListenErrorRaw, type ListenErrorCode } from "@/subjects/english/speech/listener";
 import { KidCharacter } from "@/components/kid/KidCharacter";
 import { FriendCharacter } from "@/components/kid/FriendCharacter";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -111,6 +111,7 @@ export function Talk({
   }
 
   useEffect(() => {
+    prepareListener();
     const state = live.current;
     state.alive = true;
     // Giọng cố định: Lucy nói bằng giọng đã chọn; luân phiên: Lucy luôn là giọng nữ
@@ -232,7 +233,7 @@ export function Talk({
     setMicVoice(false);
     setPhase("listening");
     try {
-      const { transcript } = await listener.listen({ expected: step?.accept.length ? step.accept : step?.hints.slice(0, 1), onReady: () => setMicReady(true), onVoice: setMicVoice });
+      const { transcript } = await listener.listen({ expected: step?.accept.length ? step.accept : step?.hints.slice(0, 1), onReady: () => setMicReady(true), onThinking: () => setMicReady(false), onVoice: setMicVoice });
       await submit(transcript, false);
     } catch (e) {
       const code = e instanceof ListenError ? e.code : "other";
@@ -338,7 +339,7 @@ export function Talk({
                 <Icon icon={faLightbulb} /> Gợi ý
               </Button>
               {supported ? (
-                <MicButton size="md" state={phase === "listening" ? (micReady ? (micVoice ? "hearing" : "listening") : "opening") : "idle"} onClick={listen} />
+                <MicButton size="md" state={phase === "listening" ? (micReady ? (micVoice ? "hearing" : "listening") : "opening") : "idle"} onClick={listen} onStop={() => listener.finish()} />
               ) : (
                 <>
                   {blockCode !== "not-supported" && (
@@ -351,7 +352,7 @@ export function Talk({
               )}
             </div>
             {!supported && <p className="max-w-md rounded-2xl bg-sun-100 px-4 py-2 text-center text-sm font-bold text-ink" role="alert">{listenHelp(blockCode)}{" "}<span className="font-normal text-muted">(mã lỗi: {blocked ? lastListenErrorRaw() : "no-api"})</span></p>}
-            <p className="text-sm font-bold text-muted">{phase === "listening" ? (micReady ? "Đang nghe…" : "") : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
+            <p className="text-sm font-bold text-muted">{phase === "listening" ? (micReady ? "Đang nghe… Nói xong bấm micro" : "") : supported ? "Bấm micro rồi nói" : "Nói to rồi bấm nút"}</p>
           </div>
         ) : (
           <p className="text-center text-lg font-bold text-muted">{phase === "loading" ? "Đang chuẩn bị…" : "Nghe bạn nói nhé…"}</p>

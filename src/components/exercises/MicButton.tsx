@@ -12,7 +12,10 @@ export type MicState = "idle" | "opening" | "listening" | "hearing";
  * - listening: micro đã thu, chưa có tiếng → nút đỏ, một vòng mờ nhẹ.
  * - hearing: máy đang nghe thấy bé nói → các vòng sóng lan mạnh ra ngoài.
  */
-export function MicButton({ state, size = "lg", disabled, onClick }: { state: MicState; size?: "md" | "lg"; disabled?: boolean; onClick: () => void }) {
+export function MicButton({
+  state, size = "lg", disabled, onClick, onStop,
+}: { state: MicState; size?: "md" | "lg"; disabled?: boolean; onClick: () => void; /** Bấm khi đang nghe: bé đã nói xong. */ onStop?: () => void }) {
+  const live = state === "listening" || state === "hearing";
   const dim = size === "lg" ? "h-28 w-28 text-5xl" : "h-24 w-24 text-4xl";
   return (
     <span className={clsx("relative inline-flex", dim)}>
@@ -30,9 +33,9 @@ export function MicButton({ state, size = "lg", disabled, onClick }: { state: Mi
       )}
       <button
         type="button"
-        disabled={disabled || state !== "idle"}
-        onClick={onClick}
-        aria-label={state === "idle" ? "Bấm để nói" : state === "opening" ? "Đang mở micro" : "Đang nghe"}
+        disabled={disabled || state === "opening" || (live && !onStop)}
+        onClick={live ? onStop : onClick}
+        aria-label={state === "idle" ? "Bấm để nói" : state === "opening" ? "Chờ một chút" : "Nói xong thì bấm"}
         className={clsx(
           "btn-candy relative flex items-center justify-center rounded-full text-white transition-colors duration-200 disabled:opacity-100",
           dim,

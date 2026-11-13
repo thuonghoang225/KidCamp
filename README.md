@@ -71,6 +71,18 @@ Giọng Neural của Microsoft: `ana` (giọng bé gái), `jenny`, `aria` (nữ)
    ```
 5. Vào Hồ sơ bé, giọng Azure sẽ hiện để chọn. Key chỉ dùng trên máy khi tạo file, không gửi lên trình duyệt.
 
+### Nhận diện giọng nói (nên bật)
+
+Mặc định app dùng nhận diện có sẵn của Safari/Chrome. Cách này hay cắt cụt câu khi bé nói chậm và nghe kém giọng trẻ em.
+Bật nhận diện trên máy chủ (Whisper) để nghe chính xác và tự nhiên hơn:
+
+1. Tạo tài khoản miễn phí tại [console.groq.com](https://console.groq.com) → **API Keys** → **Create API Key**.
+2. Thêm vào Vercel (Settings → Environment Variables) và `.env.local`: `GROQ_API_KEY=<key>` → Redeploy.
+
+Gói miễn phí của Groq cho khoảng 2.000 lượt nói mỗi ngày, dư cho một gia đình. App tự nhận biết khi bé nói xong
+(theo âm lượng micro, chờ lâu hơn khi bé ngừng giữa câu); bé cũng có thể bấm lại nút micro khi nói xong.
+Muốn dùng nhà cung cấp khác tương thích OpenAI: đặt thêm `STT_BASE_URL`, `STT_MODEL` và `STT_API_KEY`.
+
 ## Hình minh họa
 
 - Từ chỉ hành động, môn học, phòng học, tính từ, nghề, nơi chốn… dùng **tranh KidCamp tự vẽ** (SVG, `scripts/art/`),
