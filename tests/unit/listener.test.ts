@@ -43,6 +43,23 @@ describe("listener", () => {
     expect(FakeRec.last.stopped).toBe(true);
   });
 
+  it("không dừng khi mới nói được phần đầu câu (giữ từ cuối)", async () => {
+    const l = await setup();
+    const p = l.listen({ expected: ["I live in a big flat."] });
+    // "i live in a big" = 5/6 từ, đã qua ngưỡng chấm nhưng chưa đủ câu
+    FakeRec.last.onresult?.({ results: [[{ transcript: "I live in a big", confidence: 0.8 }]] });
+    expect(FakeRec.last.stopped).toBe(false);
+    FakeRec.last.onresult?.({ results: [[{ transcript: "I live in a big flat", confidence: 0.9 }]] });
+    await expect(p).resolves.toMatchObject({ transcript: "I live in a big flat" });
+  });
+
+  it("không ghép trùng khi Safari trả cả câu dồn lại", async () => {
+    const l = await setup();
+    const p = l.listen({ expected: ["I'm from Japan."] });
+    FakeRec.last.onresult?.({ results: [[{ transcript: "I'm from", confidence: 0.8 }], [{ transcript: "I'm from Japan", confidence: 0.9 }]] });
+    await expect(p).resolves.toMatchObject({ transcript: "I'm from Japan" });
+  });
+
   it("chọn phương án nhận diện gần câu mẫu nhất", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["flat"] });
@@ -50,11 +67,11 @@ describe("listener", () => {
     await expect(p).resolves.toMatchObject({ transcript: "flat" });
   });
 
-  it("chưa đúng thì chờ 1,5 giây im lặng rồi trả câu đã nghe", async () => {
+  it("chưa đúng thì chờ 2 giây im lặng rồi trả câu đã nghe", async () => {
     const l = await setup();
     const p = l.listen({ expected: ["Where are you from?"] });
     FakeRec.last.onresult?.({ results: [[{ transcript: "where you", confidence: 0.5 }]] });
-    vi.advanceTimersByTime(1600);
+    vi.advanceTimersByTime(2100);
     await expect(p).resolves.toMatchObject({ transcript: "where you" });
   });
 

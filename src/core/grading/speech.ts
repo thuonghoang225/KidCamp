@@ -2,6 +2,9 @@ import { levenshtein, words } from "./text";
 
 export const SPEECH_PASS = 0.8;
 
+/** Từ nhỏ không bắt buộc khi chấm nói. */
+const OPTIONAL = new Set(["a", "an", "the"]);
+
 export type SpeechScore = {
   score: number; // 0..1
   passed: boolean;
@@ -24,7 +27,10 @@ function scoreOne(transcript: string, expected: string): SpeechScore {
     if (idx >= 0) used[idx] = true;
     return { word: w, matched: idx >= 0 };
   });
-  const score = target.length ? marks.filter((m) => m.matched).length / target.length : 0;
+  // Mạo từ (a, an, the) máy nhận giọng hay nuốt mất: thiếu thì không trừ điểm, vẫn tô để bé thấy
+  const required = marks.filter((m) => !OPTIONAL.has(m.word));
+  const counted = required.length ? required : marks;
+  const score = counted.length ? counted.filter((m) => m.matched).length / counted.length : 0;
   return { score, passed: score >= SPEECH_PASS, expected, words: marks };
 }
 

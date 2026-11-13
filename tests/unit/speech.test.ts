@@ -39,3 +39,11 @@ describe("scoreSpeech", () => {
     expect(s.score).toBe(1);
   });
 });
+
+describe("mạo từ không bắt buộc", () => {
+  it("thiếu a/the vẫn đạt", async () => {
+    const { scoreSpeech } = await import("@/core/grading/speech");
+    expect(scoreSpeech("I live in flat", ["I live in a flat."]).passed).toBe(true);
+    expect(scoreSpeech("I live in a", ["I live in a flat."]).passed).toBe(false);
+  });
+});

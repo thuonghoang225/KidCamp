@@ -183,15 +183,18 @@ export function createListener(lang = "en-US"): Listener {
           const head = parts.slice(0, -1).map((r) => r[0]?.transcript ?? "").join(" ");
           const last = Array.from(parts.at(-1) ?? []);
           for (const alt of last) {
-            const transcript = `${head} ${alt.transcript}`.trim();
+            // Safari đôi khi trả cả câu dồn lại trong đoạn cuối: khi đó không ghép thêm đoạn trước
+            const said = alt.transcript.trim();
+            const transcript = head && said.toLowerCase().startsWith(head.trim().toLowerCase()) ? said : `${head} ${said}`.trim();
             const score = expected.length ? scoreSpeech(transcript, expected).score : 1;
             if (score > best.score) best = { transcript, confidence: alt.confidence ?? 0, score };
           }
-          // Đã nói đúng: dừng ngay, không bắt bé chờ
-          if (expected.length && best.score >= SPEECH_PASS) return finish(true);
-          // Chưa đúng: đợi bé nói tiếp, im lặng 1,5 giây thì chấm với câu đã nghe được
+          // Chỉ dừng sớm khi đã nghe ĐỦ mọi từ của một câu đúng. Đủ 80% thôi thì chưa dừng:
+          // từ cuối câu (thường là từ quan trọng như "Japan", "flat") sẽ bị cắt mất.
+          if (expected.length && best.score >= 1) return finish(true);
+          // Chưa đủ: đợi bé nói tiếp, im lặng 2 giây thì chấm với câu đã nghe được
           clearTimeout(silence);
-          silence = setTimeout(() => finish(true), 1500);
+          silence = setTimeout(() => finish(true), best.score >= SPEECH_PASS ? 1200 : 2000);
         };
         rec.onerror = (e) => {
           if (done) return;
